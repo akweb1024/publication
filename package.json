@@ -1,0 +1,31 @@
+{
+  "name": "publication-platform",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "node ./scripts/dev.cjs",
+    "build": "./scripts/pnpm.sh -r build",
+    "lint": "./scripts/pnpm.sh -r lint",
+    "typecheck": "./scripts/pnpm.sh -r typecheck",
+    "test": "./scripts/pnpm.sh -r test",
+    "test:e2e": "PW_USE_WEBSERVER=1 ./scripts/pnpm.sh --filter @pub/web test:e2e",
+    "test:e2e:ci": "./scripts/pnpm.sh db:seed && ./scripts/pnpm.sh --filter @pub/web exec playwright install chromium && PW_USE_WEBSERVER=1 ./scripts/pnpm.sh --filter @pub/web test:e2e",
+    "db:migrate": "./scripts/db.sh db:migrate",
+    "db:deploy": "./scripts/db.sh db:deploy",
+    "db:generate": "./scripts/db.sh db:generate",
+    "db:seed": "node --import tsx -r dotenv/config packages/db/prisma/seed.ts",
+    "ops:backup": "./scripts/backup.sh",
+    "ops:restore-drill": "./scripts/restore-drill.sh",
+    "ops:roll-restart": "./scripts/prod-rolling-restart.sh",
+    "ops:deploy-prod": "./scripts/deploy-prod.sh",
+    "ops:backup:cron-install": "./scripts/install-backup-cron.sh",
+    "ops:obs:up": "docker compose -f ops/observability/docker-compose.observability.yml up -d",
+    "ops:obs:down": "docker compose -f ops/observability/docker-compose.observability.yml down"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "dotenv": "^17.2.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.6.3"
+  }
+}

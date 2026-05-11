@@ -1,0 +1,5 @@
+-- Add MFA support fields on User
+ALTER TABLE "User"
+  ADD COLUMN IF NOT EXISTS "mfaEnabled" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "mfaSecret" TEXT,
+  ADD COLUMN IF NOT EXISTS "mfaEnabledAt" TIMESTAMP(3);

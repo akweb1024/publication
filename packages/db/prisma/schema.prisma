@@ -1,0 +1,593 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JournalStatus {
+  DRAFT
+  LIVE
+  ARCHIVED
+}
+
+enum ReviewModel {
+  DOUBLE_BLIND
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum JournalRole {
+  JOURNAL_ADMIN
+  EDITOR_IN_CHIEF
+  MANAGING_EDITOR
+  SECTION_EDITOR
+  ASSOCIATE_EDITOR
+  COPYEDITOR
+  PRODUCTION_EDITOR
+  REVIEWER
+  AUTHOR_SUPPORT
+  SUBSCRIBER
+}
+
+enum PolicyContext {
+  SUBMISSION
+  REVIEW
+  GENERAL
+}
+
+enum FileSetKind {
+  SUBMISSION
+  REVIEW
+  PRODUCTION
+  PUBLISHED
+}
+
+enum StoredFileRole {
+  MANUSCRIPT
+  SUPPLEMENT
+  FIGURE
+  RESPONSE_LETTER
+  OTHER
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  TRIAGE
+  EDITOR_ASSIGNED
+  UNDER_REVIEW
+  REVISION_REQUESTED
+  REVISED_SUBMITTED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum EditorAssignmentRole {
+  HANDLING_EDITOR
+  SECTION_EDITOR
+}
+
+enum ReviewAssignmentStatus {
+  INVITED
+  ACCEPTED
+  DECLINED
+  OVERDUE
+  SUBMITTED
+  CANCELLED
+}
+
+enum ReviewRecommendation {
+  ACCEPT
+  MINOR
+  MAJOR
+  REJECT
+}
+
+enum DecisionType {
+  DESK_REJECT
+  REVISE_MAJOR
+  REVISE_MINOR
+  ACCEPT
+  REJECT
+}
+
+enum IssueStatus {
+  PLANNED
+  PUBLISHED
+}
+
+enum ArticleAccess {
+  OPEN
+  RESTRICTED
+}
+
+enum ArticleStatus {
+  IN_PRESS
+  PUBLISHED
+  RETRACTED
+  CORRECTED
+  EOC
+}
+
+enum MessageDeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+model Publisher {
+  id            String   @id @default(uuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  name          String
+  defaultLocale String   @default("en")
+  supportEmail  String
+
+  journals Journal[]
+}
+
+model Journal {
+  id                  String       @id @default(uuid())
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  publisherId         String
+  slug                String
+  title               String
+  issnPrint           String?
+  issnOnline          String?
+  description         String?
+  status              JournalStatus @default(DRAFT)
+  reviewModel         ReviewModel   @default(DOUBLE_BLIND)
+  submissionEmailFrom String?
+  brandingJson        Json          @default("{}")
+  timezone            String        @default("UTC")
+
+  publisher          Publisher            @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  roleAssignments    JournalRoleAssignment[]
+  policyDocuments    PolicyDocument[]
+  fileSets           FileSet[]
+  submissions        Submission[]
+  volumes            Volume[]
+  issues             Issue[]
+  articles           Article[]
+  messageThreads     MessageThread[]
+  auditLogs          AuditLog[]
+  submissionSequences SubmissionSequence[]
+  requiredPolicyKeys String[] @default([])
+
+  @@unique([slug])
+  @@index([publisherId])
+}
+
+model User {
+  id           String     @id @default(uuid())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  email        String     @unique
+  passwordHash String
+  name         String
+  status       UserStatus @default(ACTIVE)
+  orcidId      String?
+  orcidAccessTokenRef String?
+  mfaEnabled   Boolean    @default(false)
+  mfaSecret    String?
+  mfaEnabledAt DateTime?
+
+  roleAssignments JournalRoleAssignment[]
+  auditLogs       AuditLog[]
+  submissions     Submission[] @relation("SubmissionSubmitter")
+  editorAssignments EditorAssignment[]
+  decisions       Decision[]
+  messagesCreated MessageThread[] @relation("MessageThreadCreator")
+  filesUploaded   StoredFile[]
+  policyVersionsPublished PolicyVersion[]
+  policyAcceptances PolicyAcceptance[]
+  reviewAssignments ReviewAssignment[]
+}
+
+model JournalRoleAssignment {
+  id        String      @id @default(uuid())
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  journalId String
+  userId    String
+  role      JournalRole
+  subscriptionStartAt DateTime?
+  subscriptionEndAt   DateTime?
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([journalId, userId, role])
+  @@index([userId])
+  @@index([role, subscriptionEndAt])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  occurredAt  DateTime @default(now())
+  journalId   String?
+  actorUserId String
+  action      String
+  entityType  String
+  entityId    String
+  ip          String?
+  userAgent   String?
+  metadataJson Json   @default("{}")
+
+  journal Journal? @relation(fields: [journalId], references: [id], onDelete: SetNull)
+  actor   User     @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([journalId, occurredAt])
+  @@index([actorUserId, occurredAt])
+}
+
+model PolicyDocument {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  journalId  String
+  key       String
+  title     String
+
+  journal  Journal         @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  versions PolicyVersion[]
+
+  @@unique([journalId, key])
+  @@index([journalId])
+}
+
+model PolicyVersion {
+  id              String   @id @default(uuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  policyDocumentId String
+  versionNumber   Int
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+  contentHtml     String
+  changeNote      String?
+  publishedByUserId String
+
+  policyDocument PolicyDocument @relation(fields: [policyDocumentId], references: [id], onDelete: Cascade)
+  publishedBy    User          @relation(fields: [publishedByUserId], references: [id], onDelete: Restrict)
+  acceptances    PolicyAcceptance[]
+
+  @@unique([policyDocumentId, versionNumber])
+  @@index([policyDocumentId, effectiveFrom])
+}
+
+model PolicyAcceptance {
+  id              String       @id @default(uuid())
+  createdAt       DateTime     @default(now())
+  policyVersionId String
+  userId          String
+  acceptedAt      DateTime     @default(now())
+  context         PolicyContext
+
+  policyVersion PolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([policyVersionId, userId, context])
+  @@index([userId, acceptedAt])
+}
+
+model SubmissionSequence {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  journalId  String
+  year       Int
+  nextNumber Int      @default(1)
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+
+  @@unique([journalId, year])
+}
+
+model Submission {
+  id              String          @id @default(uuid())
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  journalId       String
+  submitterUserId String
+  trackingNumber  String?
+  status          SubmissionStatus @default(DRAFT)
+  manuscriptTitle String?
+  abstractText    String?
+  keywordsText    String[]        @default([])
+  articleType     String?
+  submittedAt     DateTime?
+  decisionAt      DateTime?
+
+  journal   Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  submitter User    @relation("SubmissionSubmitter", fields: [submitterUserId], references: [id], onDelete: Restrict)
+
+  manuscriptVersions ManuscriptVersion[]
+  contributors        SubmissionContributor[]
+  editorAssignments   EditorAssignment[]
+  reviewRounds        ReviewRound[]
+  decisions           Decision[]
+  messageThreads      MessageThread[]
+  article             Article?
+
+  @@unique([journalId, trackingNumber])
+  @@index([journalId, status])
+  @@index([submitterUserId, createdAt])
+}
+
+model ManuscriptVersion {
+  id              String   @id @default(uuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  submissionId    String
+  versionNumber   Int
+  coverLetter     String?
+  authorStatementJson Json @default("{}")
+  fileSetId       String
+  submittedAt     DateTime?
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  fileSet    FileSet    @relation(fields: [fileSetId], references: [id], onDelete: Restrict)
+
+  @@unique([submissionId, versionNumber])
+  @@index([submissionId])
+}
+
+model FileSet {
+  id        String     @id @default(uuid())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  journalId  String
+  kind      FileSetKind
+  storagePrefix String
+  checksumManifestJson Json @default("{}")
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  files   StoredFile[]
+  manuscriptVersions ManuscriptVersion[]
+  reviews Review[]
+}
+
+model StoredFile {
+  id            String        @id @default(uuid())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  fileSetId     String
+  role          StoredFileRole @default(OTHER)
+  originalName  String
+  mimeType      String
+  sizeBytes     Int
+  sha256        String
+  storageKey    String
+  uploadedByUserId String
+
+  fileSet    FileSet @relation(fields: [fileSetId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  publishedAssets PublishedAsset[]
+
+  @@index([fileSetId])
+  @@index([storageKey])
+}
+
+model SubmissionContributor {
+  id            String   @id @default(uuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  submissionId  String
+  userId        String?
+  displayName   String
+  email         String
+  affiliation   String?
+  isCorresponding Boolean @default(false)
+  orcidId       String?
+  creditRoles   String[] @default([])
+  isAnonymizedCopy Boolean @default(false)
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+}
+
+model EditorAssignment {
+  id          String               @id @default(uuid())
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  submissionId String
+  userId      String
+  role        EditorAssignmentRole
+  assignedAt  DateTime             @default(now())
+  unassignedAt DateTime?
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([submissionId, assignedAt])
+  @@index([userId, assignedAt])
+}
+
+model ReviewRound {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  submissionId String
+  roundNumber Int
+  startedAt   DateTime @default(now())
+  endedAt     DateTime?
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  assignments ReviewAssignment[]
+
+  @@unique([submissionId, roundNumber])
+}
+
+model ReviewAssignment {
+  id            String                @id @default(uuid())
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  reviewRoundId String
+  reviewerUserId String
+  status        ReviewAssignmentStatus @default(INVITED)
+  invitedAt     DateTime              @default(now())
+  respondBy     DateTime?
+  dueAt         DateTime?
+  acceptedAt    DateTime?
+
+  reviewRound ReviewRound @relation(fields: [reviewRoundId], references: [id], onDelete: Cascade)
+  reviewer    User        @relation(fields: [reviewerUserId], references: [id], onDelete: Restrict)
+  review      Review?
+
+  @@unique([reviewRoundId, reviewerUserId])
+  @@index([reviewerUserId, status])
+}
+
+model Review {
+  id                 String               @id @default(uuid())
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  reviewAssignmentId String               @unique
+  submittedAt        DateTime?
+  recommendation     ReviewRecommendation?
+  commentsToAuthor   String?
+  commentsToEditor   String?
+  attachmentsFileSetId String?
+
+  reviewAssignment ReviewAssignment @relation(fields: [reviewAssignmentId], references: [id], onDelete: Cascade)
+  attachmentsFileSet FileSet? @relation(fields: [attachmentsFileSetId], references: [id], onDelete: SetNull)
+}
+
+model Decision {
+  id            String       @id @default(uuid())
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  submissionId  String
+  reviewRoundId String?
+  type          DecisionType
+  letterToAuthor String
+  internalNote  String?
+  decidedByUserId String
+  decidedAt     DateTime     @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  decidedBy  User       @relation(fields: [decidedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([submissionId, decidedAt])
+}
+
+model MessageThread {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  journalId   String
+  submissionId String?
+  subject     String
+  createdByUserId String
+
+  journal   Journal     @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  submission Submission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  createdBy User        @relation("MessageThreadCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  messages  Message[]
+
+  @@index([journalId, createdAt])
+  @@index([submissionId])
+}
+
+model Message {
+  id          String               @id @default(uuid())
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  threadId    String
+  fromUserId  String?
+  toEmails    String[]             @default([])
+  bodyHtml    String
+  sentAt      DateTime?
+  deliveryStatus MessageDeliveryStatus @default(QUEUED)
+
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+}
+
+model Volume {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  journalId  String
+  year       Int
+  number     Int
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  issues  Issue[]
+
+  @@unique([journalId, year, number])
+  @@index([journalId])
+}
+
+model Issue {
+  id              String      @id @default(uuid())
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  journalId       String
+  volumeId        String
+  number          Int
+  title           String?
+  publicationDate DateTime?
+  status          IssueStatus @default(PLANNED)
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  volume  Volume  @relation(fields: [volumeId], references: [id], onDelete: Cascade)
+  articles Article[]
+
+  @@unique([journalId, volumeId, number])
+  @@index([journalId, status])
+}
+
+model Article {
+  id          String        @id @default(uuid())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  journalId   String
+  submissionId String      @unique
+  issueId     String?
+  title       String
+  abstractText String?
+  keywordsText String[]    @default([])
+  doi         String?
+  pageStart   Int?
+  pageEnd     Int?
+  articleNumber String?
+  access      ArticleAccess @default(OPEN)
+  licenseKey  String?
+  publishedAt DateTime?
+  status      ArticleStatus @default(IN_PRESS)
+
+  journal    Journal    @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  issue      Issue?     @relation(fields: [issueId], references: [id], onDelete: SetNull)
+  publishedAssets PublishedAsset[]
+
+  @@index([journalId, status])
+  @@index([issueId])
+}
+
+model PublishedAsset {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  articleId   String
+  pdfFileId   String
+  versionLabel String
+  publishedAt DateTime @default(now())
+
+  article Article    @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  pdfFile StoredFile @relation(fields: [pdfFileId], references: [id], onDelete: Restrict)
+
+  @@index([articleId, publishedAt])
+}

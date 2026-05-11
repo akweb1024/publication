@@ -1,0 +1,26 @@
+FROM node:20-alpine AS base
+WORKDIR /app
+RUN apk add --no-cache libc6-compat openssl
+
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/worker/package.json apps/worker/package.json
+COPY packages/db/package.json packages/db/package.json
+RUN corepack enable && corepack pnpm install --frozen-lockfile
+
+FROM deps AS builder
+COPY tsconfig.base.json ./
+COPY apps/worker ./apps/worker
+COPY packages/db ./packages/db
+RUN corepack pnpm --filter @pub/db db:generate
+RUN corepack pnpm --filter @pub/worker build
+
+FROM base AS runner
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/worker/node_modules ./apps/worker/node_modules
+COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/apps/worker/package.json ./apps/worker/package.json
+EXPOSE 4100
+CMD ["node", "apps/worker/dist/index.js"]

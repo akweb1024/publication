@@ -1,0 +1,36 @@
+groups:
+  - name: publication-phase1-alerts
+    interval: 30s
+    rules:
+      - alert: ApiRequestErrorsDetected
+        expr: |
+          sum(count_over_time({compose_service="api"} | json | event="api.request.error" [2m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "API request errors detected"
+          description: "One or more api.request.error events were logged in the last 2 minutes."
+
+      - alert: WorkerJobFailuresDetected
+        expr: |
+          sum(count_over_time({compose_service="worker"} | json | event="worker.job.failed" [2m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: worker
+        annotations:
+          summary: "Worker job failures detected"
+          description: "One or more worker.job.failed events were logged in the last 2 minutes."
+
+      - alert: ApiReadinessEndpointDegraded
+        expr: |
+          sum(count_over_time({compose_service="api"} | json | path="/api/v1/health/ready" | statusCode=~"5.." [3m])) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "API readiness endpoint degraded"
+          description: "Health readiness endpoint returned 5xx in logs."
