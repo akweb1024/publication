@@ -38,12 +38,13 @@ Add all required variables in Coolify UI (Environment tab). Use `.env.prod.examp
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
 - `POSTGRES_DB`
-- `DATABASE_URL` (`postgresql://<user>:<password>@postgres:5432/<db>`)
+- `DATABASE_URL_INTERNAL` (`postgresql://<user>:<password>@postgres:5432/<db>?schema=public`)
 - `REDIS_URL` (`redis://redis:6379`)
 - `SESSION_SECRET` (at least 32 chars)
 - `WEB_ORIGIN` (e.g. `https://publication.yourdomain.com`)
-- `NEXT_PUBLIC_API_BASE` (e.g. `https://publication.yourdomain.com/api/v1`)
-- `API_BASE` (same as above)
+- `NEXT_PUBLIC_API_BASE` (e.g. `https://api.yourdomain.com/api/v1`)
+- `API_BASE` (`http://api:4000/api/v1` for in-stack calls)
+- `NEXT_PUBLIC_SITE_URL` (e.g. `https://publication.yourdomain.com`)
 
 ### S3 / MinIO variables
 
@@ -78,6 +79,7 @@ SERVICE_URL_WEB=https://new.stmjournals.com
 # App URLs
 WEB_ORIGIN=https://new.stmjournals.com
 NEXT_PUBLIC_API_BASE=https://apinew.stmjournals.com/api/v1
+NEXT_PUBLIC_SITE_URL=https://new.stmjournals.com
 API_BASE=http://api:4000/api/v1
 API_PORT=4000
 WEB_PORT=3000
@@ -86,7 +88,7 @@ WEB_PORT=3000
 POSTGRES_USER=pub
 POSTGRES_PASSWORD=REPLACE_ME
 POSTGRES_DB=pub
-DATABASE_URL=postgresql://pub:REPLACE_ME@postgres:5432/pub
+DATABASE_URL_INTERNAL=postgresql://pub:REPLACE_ME@postgres:5432/pub?schema=public
 
 # Redis
 REDIS_URL=redis://redis:6379
