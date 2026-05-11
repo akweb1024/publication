@@ -52,7 +52,7 @@ services:
       [
         "sh",
         "-lc",
-        "corepack pnpm --filter @pub/db db:deploy",
+        "node_modules/.bin/prisma migrate deploy --schema /app/packages/db/prisma/schema.prisma",
       ]
 
   api:
