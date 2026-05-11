@@ -17,6 +17,19 @@ type StorageConfig = {
   hasExternalSecrets: boolean;
   secretUpdatedAt: string | null;
 };
+type SimulationResult = {
+  key: string;
+  simulation: {
+    source: "default-env" | "journal-config";
+    journalSlug: string | null;
+    target: "LOCAL" | "EXTERNAL";
+    provider: "DEFAULT_ENV" | "EXTERNAL_CONFIGURED" | "EXTERNAL_FALLBACK_DEFAULT";
+    bucket: string;
+    endpoint: string;
+    region: string;
+    reason: string;
+  };
+};
 
 const PROVIDERS: StorageConfig["externalProvider"][] = ["MINIO", "S3", "R2", "GCS"];
 
@@ -41,6 +54,9 @@ export default function StorageSettingsPage() {
   const [secretAccessKey, setSecretAccessKey] = useState("");
   const [hasSecrets, setHasSecrets] = useState(false);
   const [secretUpdatedAt, setSecretUpdatedAt] = useState<string | null>(null);
+  const [simulating, setSimulating] = useState(false);
+  const [simulationKey, setSimulationKey] = useState("");
+  const [simulation, setSimulation] = useState<SimulationResult | null>(null);
 
   const externalPrefixes = useMemo(
     () => externalPathPrefixes.split(",").map((s) => s.trim()).filter(Boolean),
@@ -61,6 +77,8 @@ export default function StorageSettingsPage() {
     setSecretUpdatedAt(cfg.secretUpdatedAt);
     setAccessKeyId("");
     setSecretAccessKey("");
+    setSimulationKey(`${slug}/submissions/example-file.pdf`);
+    setSimulation(null);
   }
 
   useEffect(() => {
@@ -164,6 +182,25 @@ export default function StorageSettingsPage() {
     }
   }
 
+  async function simulateRoute() {
+    if (!journalSlug || !simulationKey.trim()) return;
+    setSimulating(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await apiJson<SimulationResult>(`/journals/${encodeURIComponent(journalSlug)}/storage-config/simulate`, {
+        method: "POST",
+        body: JSON.stringify({ key: simulationKey.trim() }),
+      });
+      setSimulation(result);
+      setMessage("Routing simulation completed.");
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to simulate storage routing");
+    } finally {
+      setSimulating(false);
+    }
+  }
+
   if (loading) return <p>Loading storage settings...</p>;
 
   return (
@@ -262,6 +299,29 @@ export default function StorageSettingsPage() {
             {testing ? "Testing..." : "Test External Connection"}
           </button>
         </div>
+      </section>
+
+      <section className="card">
+        <p className="eyebrow">Provider Simulation (Dry Run)</p>
+        <div className="field" style={{ marginTop: 10 }}>
+          <label htmlFor="simulation-key">File Key</label>
+          <input
+            id="simulation-key"
+            value={simulationKey}
+            onChange={(e) => setSimulationKey(e.target.value)}
+            placeholder={`${journalSlug || "journal-slug"}/submissions/example.pdf`}
+          />
+        </div>
+        <div className="meta-row" style={{ marginTop: 12 }}>
+          <button className="button button-ghost" onClick={simulateRoute} disabled={simulating || !simulationKey.trim() || !journalSlug}>
+            {simulating ? "Simulating..." : "Simulate Route"}
+          </button>
+        </div>
+        {simulation ? (
+          <pre style={{ marginTop: 12, overflowX: "auto", whiteSpace: "pre-wrap" }}>
+            {JSON.stringify(simulation, null, 2)}
+          </pre>
+        ) : null}
       </section>
     </main>
   );

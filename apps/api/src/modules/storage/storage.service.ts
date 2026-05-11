@@ -16,6 +16,17 @@ type ProviderConfig = {
 
 type StorageTarget = "LOCAL" | "EXTERNAL";
 
+type RoutingResolution = {
+  source: "default-env" | "journal-config";
+  journalSlug: string | null;
+  target: StorageTarget;
+  provider: "DEFAULT_ENV" | "EXTERNAL_CONFIGURED" | "EXTERNAL_FALLBACK_DEFAULT";
+  bucket: string;
+  endpoint: string;
+  region: string;
+  reason: string;
+};
+
 @Injectable()
 export class StorageService {
   private readonly defaultClient: S3Client;
@@ -59,6 +70,112 @@ export class StorageService {
     const provider = await this.resolveProvider(key);
     const cmd = new GetObjectCommand({ Bucket: provider.bucket, Key: key });
     return getSignedUrl(provider.client, cmd, { expiresIn: 60 * 10 });
+  }
+
+  async simulateRouting(key: string): Promise<RoutingResolution> {
+    const slug = this.extractJournalSlug(key);
+    if (!slug) {
+      return {
+        source: "default-env",
+        journalSlug: null,
+        target: "LOCAL",
+        provider: "DEFAULT_ENV",
+        bucket: this.defaultConfig.bucket,
+        endpoint: this.defaultConfig.endpoint,
+        region: this.defaultConfig.region,
+        reason: "No journal slug prefix found in key; default provider selected.",
+      };
+    }
+
+    const cfg = await this.prisma.journalStorageConfig.findFirst({
+      where: { journal: { slug } },
+      select: {
+        localPathPrefix: true,
+        externalPathPrefixes: true,
+        defaultTarget: true,
+        externalEndpoint: true,
+        externalRegion: true,
+        externalBucket: true,
+        encryptedSecretJson: true,
+      },
+    });
+
+    if (!cfg) {
+      return {
+        source: "default-env",
+        journalSlug: slug,
+        target: "LOCAL",
+        provider: "DEFAULT_ENV",
+        bucket: this.defaultConfig.bucket,
+        endpoint: this.defaultConfig.endpoint,
+        region: this.defaultConfig.region,
+        reason: "No journal storage config found; default provider selected.",
+      };
+    }
+
+    const target = this.resolveTargetFromKey(key, cfg.localPathPrefix, cfg.externalPathPrefixes, cfg.defaultTarget as StorageTarget);
+    if (target === "LOCAL") {
+      return {
+        source: "journal-config",
+        journalSlug: slug,
+        target,
+        provider: "DEFAULT_ENV",
+        bucket: this.defaultConfig.bucket,
+        endpoint: this.defaultConfig.endpoint,
+        region: this.defaultConfig.region,
+        reason: `Matched local path policy (${cfg.localPathPrefix}).`,
+      };
+    }
+
+    if (!cfg.externalEndpoint || !cfg.externalRegion || !cfg.externalBucket || !cfg.encryptedSecretJson) {
+      return {
+        source: "journal-config",
+        journalSlug: slug,
+        target,
+        provider: "EXTERNAL_FALLBACK_DEFAULT",
+        bucket: this.defaultConfig.bucket,
+        endpoint: this.defaultConfig.endpoint,
+        region: this.defaultConfig.region,
+        reason: "External target requested but provider config/secrets incomplete; falling back to default provider.",
+      };
+    }
+
+    try {
+      const secrets = decryptJson<{ accessKeyId: string; secretAccessKey: string }>(cfg.encryptedSecretJson, this.encryptionSecret);
+      if (!secrets.accessKeyId || !secrets.secretAccessKey) {
+        return {
+          source: "journal-config",
+          journalSlug: slug,
+          target,
+          provider: "EXTERNAL_FALLBACK_DEFAULT",
+          bucket: this.defaultConfig.bucket,
+          endpoint: this.defaultConfig.endpoint,
+          region: this.defaultConfig.region,
+          reason: "External credentials are invalid; falling back to default provider.",
+        };
+      }
+      return {
+        source: "journal-config",
+        journalSlug: slug,
+        target,
+        provider: "EXTERNAL_CONFIGURED",
+        bucket: cfg.externalBucket,
+        endpoint: cfg.externalEndpoint,
+        region: cfg.externalRegion,
+        reason: "External provider configuration is complete and selected by policy.",
+      };
+    } catch {
+      return {
+        source: "journal-config",
+        journalSlug: slug,
+        target,
+        provider: "EXTERNAL_FALLBACK_DEFAULT",
+        bucket: this.defaultConfig.bucket,
+        endpoint: this.defaultConfig.endpoint,
+        region: this.defaultConfig.region,
+        reason: "External secret decryption failed; falling back to default provider.",
+      };
+    }
   }
 
   private async resolveProvider(key: string) {

@@ -7,6 +7,7 @@ import { SessionGuard } from "../auth/session.guard.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { ConfigService } from "@nestjs/config";
 import { encryptJson } from "../storage/secret-crypto.js";
+import { StorageService } from "../storage/storage.service.js";
 
 const UpdateJournalDto = z.object({
   title: z.string().min(1).optional(),
@@ -56,12 +57,16 @@ const TestStorageConfigDto = z.object({
   externalForcePathStyle: z.boolean().default(true),
   externalSecrets: StorageConfigSecretsDto,
 });
+const SimulateStorageRoutingDto = z.object({
+  key: z.string().min(3).max(400),
+});
 
 @Controller("journals")
 export class JournalsController {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(ConfigService) private readonly config: ConfigService
+    @Inject(ConfigService) private readonly config: ConfigService,
+    @Inject(StorageService) private readonly storage: StorageService
   ) {}
 
   @Get()
@@ -443,5 +448,25 @@ export class JournalsController {
     } catch (err: any) {
       throw new BadRequestException(`Storage test failed: ${err?.message ?? "Unknown error"}`);
     }
+  }
+
+  @UseGuards(SessionGuard)
+  @Post(":journalSlug/storage-config/simulate")
+  async simulateStorageRouting(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
+    const dto = SimulateStorageRoutingDto.parse(body);
+    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true, slug: true } });
+    if (!journal) throw new NotFoundException("Journal not found");
+    const adminRole = await this.prisma.journalRoleAssignment.findFirst({
+      where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
+      select: { id: true },
+    });
+    if (!adminRole) throw new NotFoundException("Journal not found");
+
+    if (!dto.key.startsWith(`${journal.slug}/`)) {
+      throw new BadRequestException(`Key must start with '${journal.slug}/'`);
+    }
+
+    const simulation = await this.storage.simulateRouting(dto.key);
+    return { key: dto.key, simulation };
   }
 }
