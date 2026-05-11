@@ -51,8 +51,8 @@ services:
     command:
       [
         "sh",
-        "-lc",
-        "node_modules/.bin/prisma migrate deploy --schema /app/packages/db/prisma/schema.prisma",
+        "-c",
+        "node packages/db/node_modules/.bin/prisma migrate deploy --schema /app/packages/db/prisma/schema.prisma",
       ]
 
   api:
