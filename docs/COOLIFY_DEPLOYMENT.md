@@ -64,6 +64,55 @@ Add all required variables in Coolify UI (Environment tab). Use `.env.prod.examp
 - `SMTP_PASS`
 - `SMTP_FROM`
 
+### Full environment template for STM Journals domains
+
+Use this in Coolify -> Environment (replace placeholder secrets):
+
+```env
+NODE_ENV=production
+
+# Public domains
+SERVICE_URL_API=https://apinew.stmjournals.com
+SERVICE_URL_WEB=https://new.stmjournals.com
+
+# App URLs
+WEB_ORIGIN=https://new.stmjournals.com
+NEXT_PUBLIC_API_BASE=https://apinew.stmjournals.com/api/v1
+API_BASE=http://api:4000/api/v1
+API_PORT=4000
+WEB_PORT=3000
+
+# Postgres
+POSTGRES_USER=pub
+POSTGRES_PASSWORD=REPLACE_ME
+POSTGRES_DB=pub
+DATABASE_URL=postgresql://pub:REPLACE_ME@postgres:5432/pub
+
+# Redis
+REDIS_URL=redis://redis:6379
+
+# Session
+SESSION_SECRET=REPLACE_WITH_32_PLUS_CHAR_SECRET
+STORAGE_CONFIG_ENCRYPTION_KEY=REPLACE_WITH_32_PLUS_CHAR_SECRET
+
+# MinIO / S3
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=REPLACE_ME
+S3_ENDPOINT=http://minio:9000
+S3_BUCKET=publication
+S3_REGION=us-east-1
+S3_FORCE_PATH_STYLE=true
+S3_ACCESS_KEY=REPLACE_ME
+S3_SECRET_KEY=REPLACE_ME
+
+# SMTP
+SMTP_HOST=REPLACE_SMTP_HOST
+SMTP_PORT=587
+SMTP_USER=REPLACE_SMTP_USER
+SMTP_PASS=REPLACE_SMTP_PASS
+SMTP_FROM=no-reply@stmjournals.com
+```
+
 ## 5) Domain and port routing
 
 - Expose `web` service port `3000` publicly via Coolify domain.

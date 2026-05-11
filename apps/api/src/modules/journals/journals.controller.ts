@@ -1,9 +1,12 @@
 import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
-import { JournalRole } from "@prisma/client";
+import { HeadBucketCommand, S3Client } from "@aws-sdk/client-s3";
+import { JournalRole, StorageProvider, StorageTarget } from "@prisma/client";
 import { z } from "zod";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { ConfigService } from "@nestjs/config";
+import { encryptJson } from "../storage/secret-crypto.js";
 
 const UpdateJournalDto = z.object({
   title: z.string().min(1).optional(),
@@ -29,10 +32,37 @@ const AssignRoleDto = z.object({
   subscriptionStartAt: z.string().datetime().optional(),
   subscriptionEndAt: z.string().datetime().optional(),
 });
+const StorageConfigSecretsDto = z.object({
+  accessKeyId: z.string().min(1),
+  secretAccessKey: z.string().min(1),
+});
+const UpdateStorageConfigDto = z.object({
+  localPathPrefix: z.string().min(1).max(120).optional(),
+  externalPathPrefixes: z.array(z.string().min(1).max(120)).max(20).optional(),
+  defaultTarget: z.nativeEnum(StorageTarget).optional(),
+  externalProvider: z.nativeEnum(StorageProvider).optional(),
+  externalEndpoint: z.string().url().optional().nullable(),
+  externalRegion: z.string().min(1).max(120).optional().nullable(),
+  externalBucket: z.string().min(1).max(120).optional().nullable(),
+  externalForcePathStyle: z.boolean().optional(),
+  externalSecrets: StorageConfigSecretsDto.optional(),
+});
+
+const TestStorageConfigDto = z.object({
+  externalProvider: z.nativeEnum(StorageProvider),
+  externalEndpoint: z.string().url(),
+  externalRegion: z.string().min(1).max(120),
+  externalBucket: z.string().min(1).max(120),
+  externalForcePathStyle: z.boolean().default(true),
+  externalSecrets: StorageConfigSecretsDto,
+});
 
 @Controller("journals")
 export class JournalsController {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(ConfigService) private readonly config: ConfigService
+  ) {}
 
   @Get()
   async list() {
@@ -241,5 +271,177 @@ export class JournalsController {
       where: { journalId: journal.id, userId: targetUser.id, role: dto.role },
     });
     return { ok: true };
+  }
+
+  @UseGuards(SessionGuard)
+  @Get(":journalSlug/storage-config")
+  async getStorageConfig(@Param("journalSlug") journalSlug: string, @CurrentUser() user: any) {
+    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
+    if (!journal) throw new NotFoundException("Journal not found");
+    const adminRole = await this.prisma.journalRoleAssignment.findFirst({
+      where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
+      select: { id: true },
+    });
+    if (!adminRole) throw new NotFoundException("Journal not found");
+
+    const row = await this.prisma.journalStorageConfig.findUnique({
+      where: { journalId: journal.id },
+      select: {
+        localPathPrefix: true,
+        externalPathPrefixes: true,
+        defaultTarget: true,
+        externalProvider: true,
+        externalEndpoint: true,
+        externalRegion: true,
+        externalBucket: true,
+        externalForcePathStyle: true,
+        secretUpdatedAt: true,
+        encryptedSecretJson: true,
+      },
+    });
+
+    if (!row) {
+      return {
+        localPathPrefix: "system",
+        externalPathPrefixes: ["submissions", "uploads", "manuscripts", "exports"],
+        defaultTarget: StorageTarget.EXTERNAL,
+        externalProvider: StorageProvider.MINIO,
+        externalEndpoint: null,
+        externalRegion: null,
+        externalBucket: null,
+        externalForcePathStyle: true,
+        hasExternalSecrets: false,
+        secretUpdatedAt: null,
+      };
+    }
+
+    return {
+      localPathPrefix: row.localPathPrefix,
+      externalPathPrefixes: row.externalPathPrefixes,
+      defaultTarget: row.defaultTarget,
+      externalProvider: row.externalProvider,
+      externalEndpoint: row.externalEndpoint,
+      externalRegion: row.externalRegion,
+      externalBucket: row.externalBucket,
+      externalForcePathStyle: row.externalForcePathStyle,
+      hasExternalSecrets: !!row.encryptedSecretJson,
+      secretUpdatedAt: row.secretUpdatedAt,
+    };
+  }
+
+  @UseGuards(SessionGuard)
+  @Patch(":journalSlug/storage-config")
+  async updateStorageConfig(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
+    const dto = UpdateStorageConfigDto.parse(body);
+    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
+    if (!journal) throw new NotFoundException("Journal not found");
+    const adminRole = await this.prisma.journalRoleAssignment.findFirst({
+      where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
+      select: { id: true },
+    });
+    if (!adminRole) throw new NotFoundException("Journal not found");
+
+    const encryptionKey = this.config.get<string>("STORAGE_CONFIG_ENCRYPTION_KEY") ?? this.config.get<string>("SESSION_SECRET");
+    if (!encryptionKey) throw new BadRequestException("Server encryption key is not configured");
+
+    const encryptedSecretJson = dto.externalSecrets ? encryptJson(dto.externalSecrets, encryptionKey) : undefined;
+    const updated = await this.prisma.journalStorageConfig.upsert({
+      where: { journalId: journal.id },
+      update: {
+        localPathPrefix: dto.localPathPrefix,
+        externalPathPrefixes: dto.externalPathPrefixes,
+        defaultTarget: dto.defaultTarget,
+        externalProvider: dto.externalProvider,
+        externalEndpoint: dto.externalEndpoint,
+        externalRegion: dto.externalRegion,
+        externalBucket: dto.externalBucket,
+        externalForcePathStyle: dto.externalForcePathStyle,
+        encryptedSecretJson,
+        secretUpdatedAt: dto.externalSecrets ? new Date() : undefined,
+        secretVersion: dto.externalSecrets ? { increment: 1 } : undefined,
+      },
+      create: {
+        journalId: journal.id,
+        localPathPrefix: dto.localPathPrefix ?? "system",
+        externalPathPrefixes: dto.externalPathPrefixes ?? ["submissions", "uploads", "manuscripts", "exports"],
+        defaultTarget: dto.defaultTarget ?? StorageTarget.EXTERNAL,
+        externalProvider: dto.externalProvider ?? StorageProvider.MINIO,
+        externalEndpoint: dto.externalEndpoint ?? null,
+        externalRegion: dto.externalRegion ?? null,
+        externalBucket: dto.externalBucket ?? null,
+        externalForcePathStyle: dto.externalForcePathStyle ?? true,
+        encryptedSecretJson: encryptedSecretJson ?? null,
+        secretUpdatedAt: dto.externalSecrets ? new Date() : null,
+      },
+      select: {
+        localPathPrefix: true,
+        externalPathPrefixes: true,
+        defaultTarget: true,
+        externalProvider: true,
+        externalEndpoint: true,
+        externalRegion: true,
+        externalBucket: true,
+        externalForcePathStyle: true,
+        encryptedSecretJson: true,
+        secretUpdatedAt: true,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        journalId: journal.id,
+        actorUserId: user.id,
+        action: "journal.update_storage_config",
+        entityType: "JournalStorageConfig",
+        entityId: journal.id,
+        metadataJson: {
+          updatedFields: Object.keys(dto).filter((key) => key !== "externalSecrets"),
+          secretsUpdated: !!dto.externalSecrets,
+        },
+      },
+    });
+
+    return {
+      localPathPrefix: updated.localPathPrefix,
+      externalPathPrefixes: updated.externalPathPrefixes,
+      defaultTarget: updated.defaultTarget,
+      externalProvider: updated.externalProvider,
+      externalEndpoint: updated.externalEndpoint,
+      externalRegion: updated.externalRegion,
+      externalBucket: updated.externalBucket,
+      externalForcePathStyle: updated.externalForcePathStyle,
+      hasExternalSecrets: !!updated.encryptedSecretJson,
+      secretUpdatedAt: updated.secretUpdatedAt,
+    };
+  }
+
+  @UseGuards(SessionGuard)
+  @Post(":journalSlug/storage-config/test")
+  async testStorageConfig(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
+    const dto = TestStorageConfigDto.parse(body);
+    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
+    if (!journal) throw new NotFoundException("Journal not found");
+    const adminRole = await this.prisma.journalRoleAssignment.findFirst({
+      where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
+      select: { id: true },
+    });
+    if (!adminRole) throw new NotFoundException("Journal not found");
+
+    const client = new S3Client({
+      region: dto.externalRegion,
+      endpoint: dto.externalEndpoint,
+      forcePathStyle: dto.externalForcePathStyle,
+      credentials: {
+        accessKeyId: dto.externalSecrets.accessKeyId,
+        secretAccessKey: dto.externalSecrets.secretAccessKey,
+      },
+    });
+
+    try {
+      await client.send(new HeadBucketCommand({ Bucket: dto.externalBucket }));
+      return { ok: true };
+    } catch (err: any) {
+      throw new BadRequestException(`Storage test failed: ${err?.message ?? "Unknown error"}`);
+    }
   }
 }

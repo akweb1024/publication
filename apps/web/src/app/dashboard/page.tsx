@@ -67,6 +67,11 @@ export default function DashboardHomePage() {
         title: "Journal Settings",
         description: "Update journal metadata, branding, ISSNs, and required policy mappings.",
       });
+      items.push({
+        href: "/dashboard/storage",
+        title: "Storage Settings",
+        description: "Configure hybrid local and external storage providers with encrypted credentials.",
+      });
     }
     if (capabilities.canAudit) {
       items.push({

@@ -128,6 +128,7 @@ export default function RoleAwareNav() {
           <span className="nav-divider" />
           {capabilities?.canAudit ? <NavItem href="/dashboard/audit" label="Audit" /> : null}
           {capabilities?.canManageJournal ? <NavItem href="/dashboard/journals" label="Admin" /> : null}
+          {capabilities?.canManageJournal ? <NavItem href="/dashboard/storage" label="Storage" /> : null}
         </>
       ) : null}
       {capabilities?.canSecurity ? <NavItem href="/dashboard/security" label="Security" /> : null}
