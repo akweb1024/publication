@@ -1,12 +1,13 @@
 import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { HeadBucketCommand, S3Client } from "@aws-sdk/client-s3";
-import { JournalRole, StorageProvider, StorageTarget } from "@prisma/client";
+import { Client as PgClient } from "pg";
+import { DataSyncRunStatus, JournalRole, StorageProvider, StorageTarget } from "@prisma/client";
 import { z } from "zod";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { ConfigService } from "@nestjs/config";
-import { encryptJson } from "../storage/secret-crypto.js";
+import { decryptJson, encryptJson } from "../storage/secret-crypto.js";
 import { StorageService } from "../storage/storage.service.js";
 
 const UpdateJournalDto = z.object({
@@ -59,6 +60,20 @@ const TestStorageConfigDto = z.object({
 });
 const SimulateStorageRoutingDto = z.object({
   key: z.string().min(3).max(400),
+});
+const UpdateDataSyncConfigDto = z.object({
+  enabled: z.boolean().optional(),
+  autoSyncEnabled: z.boolean().optional(),
+  externalDatabaseUrl: z.string().url().optional(),
+});
+const TestDataSyncDto = z.object({
+  externalDatabaseUrl: z.string().url().optional(),
+});
+const RunDataSyncDto = z.object({
+  externalDatabaseUrl: z.string().url().optional(),
+});
+const DataSyncRunListQueryDto = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 @Controller("journals")
@@ -468,5 +483,334 @@ export class JournalsController {
 
     const simulation = await this.storage.simulateRouting(dto.key);
     return { key: dto.key, simulation };
+  }
+
+  @UseGuards(SessionGuard)
+  @Get(":journalSlug/data-sync-config")
+  async getDataSyncConfig(@Param("journalSlug") journalSlug: string, @CurrentUser() user: any) {
+    const journal = await this.requireAdminJournalAccess(journalSlug, user.id);
+    const row = await this.prisma.journalDataSyncConfig.findUnique({
+      where: { journalId: journal.id },
+      select: {
+        enabled: true,
+        autoSyncEnabled: true,
+        hasValidatedConnection: true,
+        lastTestedAt: true,
+        lastSyncAt: true,
+        lastSyncStatus: true,
+        lastSyncMessage: true,
+        encryptedDatabaseUrl: true,
+      },
+    });
+    if (!row) {
+      return {
+        enabled: false,
+        autoSyncEnabled: false,
+        hasValidatedConnection: false,
+        hasExternalDatabaseUrl: false,
+        lastTestedAt: null,
+        lastSyncAt: null,
+        lastSyncStatus: null,
+        lastSyncMessage: null,
+      };
+    }
+    return {
+      enabled: row.enabled,
+      autoSyncEnabled: row.autoSyncEnabled,
+      hasValidatedConnection: row.hasValidatedConnection,
+      hasExternalDatabaseUrl: !!row.encryptedDatabaseUrl,
+      lastTestedAt: row.lastTestedAt,
+      lastSyncAt: row.lastSyncAt,
+      lastSyncStatus: row.lastSyncStatus,
+      lastSyncMessage: row.lastSyncMessage,
+    };
+  }
+
+  @UseGuards(SessionGuard)
+  @Patch(":journalSlug/data-sync-config")
+  async updateDataSyncConfig(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
+    const dto = UpdateDataSyncConfigDto.parse(body);
+    const journal = await this.requireAdminJournalAccess(journalSlug, user.id);
+    const encryptionKey = this.getEncryptionKey();
+    const encryptedDatabaseUrl = dto.externalDatabaseUrl ? encryptJson({ databaseUrl: dto.externalDatabaseUrl }, encryptionKey) : undefined;
+
+    const updated = await this.prisma.journalDataSyncConfig.upsert({
+      where: { journalId: journal.id },
+      update: {
+        enabled: dto.enabled,
+        autoSyncEnabled: dto.autoSyncEnabled,
+        encryptedDatabaseUrl,
+        hasValidatedConnection: dto.externalDatabaseUrl ? false : undefined,
+      },
+      create: {
+        journalId: journal.id,
+        enabled: dto.enabled ?? false,
+        autoSyncEnabled: dto.autoSyncEnabled ?? false,
+        encryptedDatabaseUrl: encryptedDatabaseUrl ?? null,
+      },
+      select: {
+        enabled: true,
+        autoSyncEnabled: true,
+        hasValidatedConnection: true,
+        lastTestedAt: true,
+        lastSyncAt: true,
+        lastSyncStatus: true,
+        lastSyncMessage: true,
+        encryptedDatabaseUrl: true,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        journalId: journal.id,
+        actorUserId: user.id,
+        action: "journal.update_data_sync_config",
+        entityType: "JournalDataSyncConfig",
+        entityId: journal.id,
+        metadataJson: {
+          updatedFields: Object.keys(dto).filter((key) => key !== "externalDatabaseUrl"),
+          databaseUrlUpdated: !!dto.externalDatabaseUrl,
+        },
+      },
+    });
+
+    return {
+      enabled: updated.enabled,
+      autoSyncEnabled: updated.autoSyncEnabled,
+      hasValidatedConnection: updated.hasValidatedConnection,
+      hasExternalDatabaseUrl: !!updated.encryptedDatabaseUrl,
+      lastTestedAt: updated.lastTestedAt,
+      lastSyncAt: updated.lastSyncAt,
+      lastSyncStatus: updated.lastSyncStatus,
+      lastSyncMessage: updated.lastSyncMessage,
+    };
+  }
+
+  @UseGuards(SessionGuard)
+  @Post(":journalSlug/data-sync-config/test")
+  async testDataSyncConfig(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
+    const dto = TestDataSyncDto.parse(body);
+    const journal = await this.requireAdminJournalAccess(journalSlug, user.id);
+    const databaseUrl = dto.externalDatabaseUrl ?? (await this.getStoredExternalDatabaseUrl(journal.id));
+    if (!databaseUrl) {
+      throw new BadRequestException("External database URL is not configured");
+    }
+    await this.testExternalDatabase(databaseUrl);
+    await this.prisma.journalDataSyncConfig.upsert({
+      where: { journalId: journal.id },
+      update: { hasValidatedConnection: true, lastTestedAt: new Date() },
+      create: { journalId: journal.id, hasValidatedConnection: true, lastTestedAt: new Date() },
+    });
+    return { ok: true };
+  }
+
+  @UseGuards(SessionGuard)
+  @Post(":journalSlug/data-sync/sync-now")
+  async runDataSyncNow(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
+    const dto = RunDataSyncDto.parse(body);
+    const journal = await this.requireAdminJournalAccess(journalSlug, user.id);
+    const databaseUrl = dto.externalDatabaseUrl ?? (await this.getStoredExternalDatabaseUrl(journal.id));
+    if (!databaseUrl) {
+      throw new BadRequestException("External database URL is not configured");
+    }
+
+    const run = await this.prisma.journalDataSyncRun.create({
+      data: {
+        journalId: journal.id,
+        status: DataSyncRunStatus.FAILED,
+        startedAt: new Date(),
+        metadataJson: {},
+      },
+      select: { id: true },
+    });
+
+    try {
+      const { recordsSynced } = await this.syncJournalSnapshotToExternalDatabase(journal.id, journal.slug, databaseUrl);
+      await this.prisma.journalDataSyncRun.update({
+        where: { id: run.id },
+        data: {
+          status: DataSyncRunStatus.SUCCESS,
+          recordsSynced,
+          finishedAt: new Date(),
+          metadataJson: { recordsSynced },
+        },
+      });
+      await this.prisma.journalDataSyncConfig.upsert({
+        where: { journalId: journal.id },
+        update: {
+          lastSyncAt: new Date(),
+          lastSyncStatus: DataSyncRunStatus.SUCCESS,
+          lastSyncMessage: `Synced ${recordsSynced} records`,
+        },
+        create: {
+          journalId: journal.id,
+          enabled: true,
+          lastSyncAt: new Date(),
+          lastSyncStatus: DataSyncRunStatus.SUCCESS,
+          lastSyncMessage: `Synced ${recordsSynced} records`,
+        },
+      });
+      return { ok: true, runId: run.id, recordsSynced };
+    } catch (err: any) {
+      const message = err?.message ?? "Unknown error";
+      await this.prisma.journalDataSyncRun.update({
+        where: { id: run.id },
+        data: {
+          status: DataSyncRunStatus.FAILED,
+          finishedAt: new Date(),
+          errorMessage: message,
+          metadataJson: { error: message },
+        },
+      });
+      await this.prisma.journalDataSyncConfig.upsert({
+        where: { journalId: journal.id },
+        update: {
+          lastSyncAt: new Date(),
+          lastSyncStatus: DataSyncRunStatus.FAILED,
+          lastSyncMessage: message,
+        },
+        create: {
+          journalId: journal.id,
+          enabled: true,
+          lastSyncAt: new Date(),
+          lastSyncStatus: DataSyncRunStatus.FAILED,
+          lastSyncMessage: message,
+        },
+      });
+      throw new BadRequestException(`Data sync failed: ${message}`);
+    }
+  }
+
+  @UseGuards(SessionGuard)
+  @Get(":journalSlug/data-sync/runs")
+  async listDataSyncRuns(@Param("journalSlug") journalSlug: string, @CurrentUser() user: any, @Query("limit") limit?: string) {
+    const journal = await this.requireAdminJournalAccess(journalSlug, user.id);
+    const query = DataSyncRunListQueryDto.parse({ limit: limit ?? 20 });
+    const items = await this.prisma.journalDataSyncRun.findMany({
+      where: { journalId: journal.id },
+      orderBy: { createdAt: "desc" },
+      take: query.limit,
+      select: {
+        id: true,
+        status: true,
+        recordsSynced: true,
+        startedAt: true,
+        finishedAt: true,
+        errorMessage: true,
+        metadataJson: true,
+      },
+    });
+    return { items };
+  }
+
+  private getEncryptionKey() {
+    const key = this.config.get<string>("STORAGE_CONFIG_ENCRYPTION_KEY") ?? this.config.get<string>("SESSION_SECRET");
+    if (!key) throw new BadRequestException("Server encryption key is not configured");
+    return key;
+  }
+
+  private async requireAdminJournalAccess(journalSlug: string, userId: string) {
+    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true, slug: true } });
+    if (!journal) throw new NotFoundException("Journal not found");
+    const role = await this.prisma.journalRoleAssignment.findFirst({
+      where: { journalId: journal.id, userId, role: { in: SETTINGS_ROLES } },
+      select: { id: true },
+    });
+    if (!role) throw new NotFoundException("Journal not found");
+    return journal;
+  }
+
+  private async getStoredExternalDatabaseUrl(journalId: string) {
+    const row = await this.prisma.journalDataSyncConfig.findUnique({
+      where: { journalId },
+      select: { encryptedDatabaseUrl: true },
+    });
+    if (!row?.encryptedDatabaseUrl) return null;
+    const decrypted = decryptJson<{ databaseUrl: string }>(row.encryptedDatabaseUrl, this.getEncryptionKey());
+    return decrypted.databaseUrl;
+  }
+
+  private async testExternalDatabase(databaseUrl: string) {
+    const client = new PgClient({ connectionString: databaseUrl });
+    try {
+      await client.connect();
+      await client.query("SELECT 1");
+    } finally {
+      await client.end().catch(() => undefined);
+    }
+  }
+
+  private async syncJournalSnapshotToExternalDatabase(journalId: string, journalSlug: string, databaseUrl: string) {
+    const [journal, roles, submissions, articles, issues] = await Promise.all([
+      this.prisma.journal.findUnique({
+        where: { id: journalId },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          description: true,
+          timezone: true,
+          status: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.journalRoleAssignment.findMany({
+        where: { journalId },
+        select: { role: true, user: { select: { email: true, name: true, status: true } }, updatedAt: true },
+      }),
+      this.prisma.submission.findMany({
+        where: { journalId },
+        select: { id: true, status: true, manuscriptTitle: true, submittedAt: true, updatedAt: true },
+      }),
+      this.prisma.article.findMany({
+        where: { journalId },
+        select: { id: true, title: true, status: true, publishedAt: true, updatedAt: true },
+      }),
+      this.prisma.issue.findMany({
+        where: { journalId },
+        select: { id: true, title: true, status: true, publicationDate: true, updatedAt: true },
+      }),
+    ]);
+
+    const snapshot = {
+      journal,
+      roles,
+      submissions,
+      articles,
+      issues,
+      metrics: {
+        roles: roles.length,
+        submissions: submissions.length,
+        articles: articles.length,
+        issues: issues.length,
+      },
+      generatedAt: new Date().toISOString(),
+    };
+
+    const client = new PgClient({ connectionString: databaseUrl });
+    try {
+      await client.connect();
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS publication_sync_snapshots (
+          journal_slug TEXT PRIMARY KEY,
+          snapshot JSONB NOT NULL,
+          synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await client.query(
+        `INSERT INTO publication_sync_snapshots (journal_slug, snapshot, synced_at)
+         VALUES ($1, $2::jsonb, NOW())
+         ON CONFLICT (journal_slug)
+         DO UPDATE SET snapshot = EXCLUDED.snapshot, synced_at = EXCLUDED.synced_at`,
+        [journalSlug, JSON.stringify(snapshot)]
+      );
+    } finally {
+      await client.end().catch(() => undefined);
+    }
+
+    return {
+      recordsSynced:
+        (journal ? 1 : 0) + roles.length + submissions.length + articles.length + issues.length,
+    };
   }
 }

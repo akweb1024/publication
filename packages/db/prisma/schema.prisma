@@ -134,6 +134,11 @@ enum MessageDeliveryStatus {
   FAILED
 }
 
+enum DataSyncRunStatus {
+  SUCCESS
+  FAILED
+}
+
 model Publisher {
   id            String   @id @default(uuid())
   createdAt     DateTime @default(now())
@@ -174,6 +179,8 @@ model Journal {
   submissionSequences SubmissionSequence[]
   requiredPolicyKeys String[] @default([])
   storageConfig      JournalStorageConfig?
+  dataSyncConfig     JournalDataSyncConfig?
+  dataSyncRuns       JournalDataSyncRun[]
 
   @@unique([slug])
   @@index([publisherId])
@@ -199,6 +206,39 @@ model JournalStorageConfig {
   journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
 
   @@index([externalProvider])
+}
+
+model JournalDataSyncConfig {
+  id                    String   @id @default(uuid())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  journalId             String   @unique
+  enabled               Boolean  @default(false)
+  autoSyncEnabled       Boolean  @default(false)
+  encryptedDatabaseUrl  String?
+  hasValidatedConnection Boolean @default(false)
+  lastTestedAt          DateTime?
+  lastSyncAt            DateTime?
+  lastSyncStatus        DataSyncRunStatus?
+  lastSyncMessage       String?
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+}
+
+model JournalDataSyncRun {
+  id           String           @id @default(uuid())
+  createdAt    DateTime         @default(now())
+  journalId    String
+  status       DataSyncRunStatus
+  recordsSynced Int             @default(0)
+  startedAt    DateTime         @default(now())
+  finishedAt   DateTime?
+  errorMessage String?
+  metadataJson Json             @default("{}")
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+
+  @@index([journalId, createdAt])
 }
 
 model User {

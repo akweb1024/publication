@@ -46,7 +46,9 @@ Add all required variables in Coolify UI (Environment tab). Use `.env.prod.examp
 - `API_BASE` (`http://api:4000/api/v1` for in-stack calls)
 - `NEXT_PUBLIC_SITE_URL` (e.g. `https://publication.yourdomain.com`)
 
-### S3 / MinIO variables
+### S3 / MinIO variables (optional)
+
+If you skip these, the app still boots, but upload/download signing endpoints will return a configuration error until S3 is configured.
 
 - `MINIO_ROOT_USER`
 - `MINIO_ROOT_PASSWORD`

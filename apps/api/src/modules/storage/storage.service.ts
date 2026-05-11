@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -29,32 +29,44 @@ type RoutingResolution = {
 
 @Injectable()
 export class StorageService {
-  private readonly defaultClient: S3Client;
-  private readonly defaultConfig: ProviderConfig;
+  private readonly defaultClient: S3Client | null;
+  private readonly defaultConfig: ProviderConfig | null;
   private readonly encryptionSecret: string;
 
   constructor(
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(PrismaService) private readonly prisma: PrismaService
   ) {
-    this.defaultConfig = {
-      endpoint: config.getOrThrow<string>("S3_ENDPOINT"),
-      region: config.getOrThrow<string>("S3_REGION"),
-      accessKeyId: config.getOrThrow<string>("S3_ACCESS_KEY"),
-      secretAccessKey: config.getOrThrow<string>("S3_SECRET_KEY"),
-      forcePathStyle: (config.get<string>("S3_FORCE_PATH_STYLE") ?? "false") === "true",
-      bucket: config.getOrThrow<string>("S3_BUCKET"),
-    };
+    const endpoint = config.get<string>("S3_ENDPOINT")?.trim();
+    const region = config.get<string>("S3_REGION")?.trim();
+    const accessKeyId = config.get<string>("S3_ACCESS_KEY")?.trim();
+    const secretAccessKey = config.get<string>("S3_SECRET_KEY")?.trim();
+    const bucket = config.get<string>("S3_BUCKET")?.trim();
+    const hasDefaultStorageConfig = Boolean(endpoint && region && accessKeyId && secretAccessKey && bucket);
 
-    this.defaultClient = new S3Client({
-      region: this.defaultConfig.region,
-      endpoint: this.defaultConfig.endpoint,
-      forcePathStyle: this.defaultConfig.forcePathStyle,
-      credentials: {
-        accessKeyId: this.defaultConfig.accessKeyId,
-        secretAccessKey: this.defaultConfig.secretAccessKey,
-      },
-    });
+    if (hasDefaultStorageConfig) {
+      this.defaultConfig = {
+        endpoint: endpoint as string,
+        region: region as string,
+        accessKeyId: accessKeyId as string,
+        secretAccessKey: secretAccessKey as string,
+        forcePathStyle: (config.get<string>("S3_FORCE_PATH_STYLE") ?? "false") === "true",
+        bucket: bucket as string,
+      };
+
+      this.defaultClient = new S3Client({
+        region: this.defaultConfig.region,
+        endpoint: this.defaultConfig.endpoint,
+        forcePathStyle: this.defaultConfig.forcePathStyle,
+        credentials: {
+          accessKeyId: this.defaultConfig.accessKeyId,
+          secretAccessKey: this.defaultConfig.secretAccessKey,
+        },
+      });
+    } else {
+      this.defaultConfig = null;
+      this.defaultClient = null;
+    }
 
     this.encryptionSecret =
       config.get<string>("STORAGE_CONFIG_ENCRYPTION_KEY") ?? config.get<string>("SESSION_SECRET") ?? "unsafe-default-key";
@@ -73,6 +85,7 @@ export class StorageService {
   }
 
   async simulateRouting(key: string): Promise<RoutingResolution> {
+    const defaultProvider = this.requireDefaultProvider();
     const slug = this.extractJournalSlug(key);
     if (!slug) {
       return {
@@ -80,9 +93,9 @@ export class StorageService {
         journalSlug: null,
         target: "LOCAL",
         provider: "DEFAULT_ENV",
-        bucket: this.defaultConfig.bucket,
-        endpoint: this.defaultConfig.endpoint,
-        region: this.defaultConfig.region,
+        bucket: defaultProvider.bucket,
+        endpoint: defaultProvider.endpoint,
+        region: defaultProvider.region,
         reason: "No journal slug prefix found in key; default provider selected.",
       };
     }
@@ -106,9 +119,9 @@ export class StorageService {
         journalSlug: slug,
         target: "LOCAL",
         provider: "DEFAULT_ENV",
-        bucket: this.defaultConfig.bucket,
-        endpoint: this.defaultConfig.endpoint,
-        region: this.defaultConfig.region,
+        bucket: defaultProvider.bucket,
+        endpoint: defaultProvider.endpoint,
+        region: defaultProvider.region,
         reason: "No journal storage config found; default provider selected.",
       };
     }
@@ -120,9 +133,9 @@ export class StorageService {
         journalSlug: slug,
         target,
         provider: "DEFAULT_ENV",
-        bucket: this.defaultConfig.bucket,
-        endpoint: this.defaultConfig.endpoint,
-        region: this.defaultConfig.region,
+        bucket: defaultProvider.bucket,
+        endpoint: defaultProvider.endpoint,
+        region: defaultProvider.region,
         reason: `Matched local path policy (${cfg.localPathPrefix}).`,
       };
     }
@@ -133,9 +146,9 @@ export class StorageService {
         journalSlug: slug,
         target,
         provider: "EXTERNAL_FALLBACK_DEFAULT",
-        bucket: this.defaultConfig.bucket,
-        endpoint: this.defaultConfig.endpoint,
-        region: this.defaultConfig.region,
+        bucket: defaultProvider.bucket,
+        endpoint: defaultProvider.endpoint,
+        region: defaultProvider.region,
         reason: "External target requested but provider config/secrets incomplete; falling back to default provider.",
       };
     }
@@ -148,9 +161,9 @@ export class StorageService {
           journalSlug: slug,
           target,
           provider: "EXTERNAL_FALLBACK_DEFAULT",
-          bucket: this.defaultConfig.bucket,
-          endpoint: this.defaultConfig.endpoint,
-          region: this.defaultConfig.region,
+          bucket: defaultProvider.bucket,
+          endpoint: defaultProvider.endpoint,
+          region: defaultProvider.region,
           reason: "External credentials are invalid; falling back to default provider.",
         };
       }
@@ -170,18 +183,19 @@ export class StorageService {
         journalSlug: slug,
         target,
         provider: "EXTERNAL_FALLBACK_DEFAULT",
-        bucket: this.defaultConfig.bucket,
-        endpoint: this.defaultConfig.endpoint,
-        region: this.defaultConfig.region,
+        bucket: defaultProvider.bucket,
+        endpoint: defaultProvider.endpoint,
+        region: defaultProvider.region,
         reason: "External secret decryption failed; falling back to default provider.",
       };
     }
   }
 
   private async resolveProvider(key: string) {
+    const defaultProvider = this.requireDefaultProvider();
     const slug = this.extractJournalSlug(key);
     if (!slug) {
-      return { client: this.defaultClient, bucket: this.defaultConfig.bucket };
+      return { client: defaultProvider.client, bucket: defaultProvider.bucket };
     }
 
     const cfg = await this.prisma.journalStorageConfig.findFirst({
@@ -199,22 +213,22 @@ export class StorageService {
     });
 
     if (!cfg) {
-      return { client: this.defaultClient, bucket: this.defaultConfig.bucket };
+      return { client: defaultProvider.client, bucket: defaultProvider.bucket };
     }
 
     const target = this.resolveTargetFromKey(key, cfg.localPathPrefix, cfg.externalPathPrefixes, cfg.defaultTarget as StorageTarget);
     if (target === "LOCAL") {
-      return { client: this.defaultClient, bucket: this.defaultConfig.bucket };
+      return { client: defaultProvider.client, bucket: defaultProvider.bucket };
     }
 
     if (!cfg.externalEndpoint || !cfg.externalRegion || !cfg.externalBucket || !cfg.encryptedSecretJson) {
-      return { client: this.defaultClient, bucket: this.defaultConfig.bucket };
+      return { client: defaultProvider.client, bucket: defaultProvider.bucket };
     }
 
     try {
       const secrets = decryptJson<{ accessKeyId: string; secretAccessKey: string }>(cfg.encryptedSecretJson, this.encryptionSecret);
       if (!secrets.accessKeyId || !secrets.secretAccessKey) {
-        return { client: this.defaultClient, bucket: this.defaultConfig.bucket };
+        return { client: defaultProvider.client, bucket: defaultProvider.bucket };
       }
       const externalClient = new S3Client({
         region: cfg.externalRegion,
@@ -227,8 +241,22 @@ export class StorageService {
       });
       return { client: externalClient, bucket: cfg.externalBucket };
     } catch {
-      return { client: this.defaultClient, bucket: this.defaultConfig.bucket };
+      return { client: defaultProvider.client, bucket: defaultProvider.bucket };
     }
+  }
+
+  private requireDefaultProvider() {
+    if (!this.defaultClient || !this.defaultConfig) {
+      throw new BadRequestException(
+        "Storage is not configured. Set S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY, and S3_SECRET_KEY to enable uploads/downloads."
+      );
+    }
+    return {
+      client: this.defaultClient,
+      bucket: this.defaultConfig.bucket,
+      endpoint: this.defaultConfig.endpoint,
+      region: this.defaultConfig.region,
+    };
   }
 
   private resolveTargetFromKey(

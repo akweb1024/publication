@@ -30,6 +30,24 @@ type SimulationResult = {
     reason: string;
   };
 };
+type DataSyncConfig = {
+  enabled: boolean;
+  autoSyncEnabled: boolean;
+  hasValidatedConnection: boolean;
+  hasExternalDatabaseUrl: boolean;
+  lastTestedAt: string | null;
+  lastSyncAt: string | null;
+  lastSyncStatus: "SUCCESS" | "FAILED" | null;
+  lastSyncMessage: string | null;
+};
+type DataSyncRun = {
+  id: string;
+  status: "SUCCESS" | "FAILED";
+  recordsSynced: number;
+  startedAt: string;
+  finishedAt: string | null;
+  errorMessage: string | null;
+};
 
 const PROVIDERS: StorageConfig["externalProvider"][] = ["MINIO", "S3", "R2", "GCS"];
 
@@ -57,6 +75,19 @@ export default function StorageSettingsPage() {
   const [simulating, setSimulating] = useState(false);
   const [simulationKey, setSimulationKey] = useState("");
   const [simulation, setSimulation] = useState<SimulationResult | null>(null);
+  const [dataSyncEnabled, setDataSyncEnabled] = useState(false);
+  const [dataSyncAuto, setDataSyncAuto] = useState(false);
+  const [externalDbUrl, setExternalDbUrl] = useState("");
+  const [hasExternalDbUrl, setHasExternalDbUrl] = useState(false);
+  const [dataSyncValidated, setDataSyncValidated] = useState(false);
+  const [dataSyncLastTestedAt, setDataSyncLastTestedAt] = useState<string | null>(null);
+  const [dataSyncLastSyncAt, setDataSyncLastSyncAt] = useState<string | null>(null);
+  const [dataSyncLastSyncStatus, setDataSyncLastSyncStatus] = useState<"SUCCESS" | "FAILED" | null>(null);
+  const [dataSyncLastSyncMessage, setDataSyncLastSyncMessage] = useState<string | null>(null);
+  const [dataSyncRuns, setDataSyncRuns] = useState<DataSyncRun[]>([]);
+  const [savingDataSync, setSavingDataSync] = useState(false);
+  const [testingDataSync, setTestingDataSync] = useState(false);
+  const [runningDataSync, setRunningDataSync] = useState(false);
 
   const externalPrefixes = useMemo(
     () => externalPathPrefixes.split(",").map((s) => s.trim()).filter(Boolean),
@@ -79,6 +110,20 @@ export default function StorageSettingsPage() {
     setSecretAccessKey("");
     setSimulationKey(`${slug}/submissions/example-file.pdf`);
     setSimulation(null);
+
+    const syncCfg = await apiJson<DataSyncConfig>(`/journals/${encodeURIComponent(slug)}/data-sync-config`, { method: "GET" });
+    setDataSyncEnabled(syncCfg.enabled);
+    setDataSyncAuto(syncCfg.autoSyncEnabled);
+    setHasExternalDbUrl(syncCfg.hasExternalDatabaseUrl);
+    setDataSyncValidated(syncCfg.hasValidatedConnection);
+    setDataSyncLastTestedAt(syncCfg.lastTestedAt);
+    setDataSyncLastSyncAt(syncCfg.lastSyncAt);
+    setDataSyncLastSyncStatus(syncCfg.lastSyncStatus);
+    setDataSyncLastSyncMessage(syncCfg.lastSyncMessage);
+    setExternalDbUrl("");
+
+    const syncRuns = await apiJson<{ items: DataSyncRun[] }>(`/journals/${encodeURIComponent(slug)}/data-sync/runs?limit=10`, { method: "GET" });
+    setDataSyncRuns(syncRuns.items);
   }
 
   useEffect(() => {
@@ -201,6 +246,70 @@ export default function StorageSettingsPage() {
     }
   }
 
+  async function saveDataSyncConfig() {
+    if (!journalSlug) return;
+    setSavingDataSync(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await apiJson(`/journals/${encodeURIComponent(journalSlug)}/data-sync-config`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          enabled: dataSyncEnabled,
+          autoSyncEnabled: dataSyncAuto,
+          externalDatabaseUrl: externalDbUrl.trim() || undefined,
+        }),
+      });
+      setMessage("External database sync settings saved.");
+      await loadJournalConfig(journalSlug);
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to save external database sync settings");
+    } finally {
+      setSavingDataSync(false);
+    }
+  }
+
+  async function testDataSyncConnection() {
+    if (!journalSlug) return;
+    setTestingDataSync(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await apiJson(`/journals/${encodeURIComponent(journalSlug)}/data-sync-config/test`, {
+        method: "POST",
+        body: JSON.stringify({ externalDatabaseUrl: externalDbUrl.trim() || undefined }),
+      });
+      setMessage("External database connection test succeeded.");
+      await loadJournalConfig(journalSlug);
+    } catch (err: any) {
+      setError(err?.message ?? "External database connection test failed");
+    } finally {
+      setTestingDataSync(false);
+    }
+  }
+
+  async function runDataSyncNow() {
+    if (!journalSlug) return;
+    setRunningDataSync(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await apiJson<{ ok: true; runId: string; recordsSynced: number }>(
+        `/journals/${encodeURIComponent(journalSlug)}/data-sync/sync-now`,
+        {
+          method: "POST",
+          body: JSON.stringify({ externalDatabaseUrl: externalDbUrl.trim() || undefined }),
+        }
+      );
+      setMessage(`Data sync completed. Synced ${result.recordsSynced} records.`);
+      await loadJournalConfig(journalSlug);
+    } catch (err: any) {
+      setError(err?.message ?? "Data sync failed");
+    } finally {
+      setRunningDataSync(false);
+    }
+  }
+
   if (loading) return <p>Loading storage settings...</p>;
 
   return (
@@ -226,6 +335,67 @@ export default function StorageSettingsPage() {
             ))}
           </select>
         </div>
+      </section>
+
+      <section className="card">
+        <p className="eyebrow">External Database Sync (Optional)</p>
+        <div className="grid" style={{ gap: 12 }}>
+          <div className="field">
+            <label htmlFor="data-sync-enabled">Sync Enabled</label>
+            <select id="data-sync-enabled" value={dataSyncEnabled ? "true" : "false"} onChange={(e) => setDataSyncEnabled(e.target.value === "true")}>
+              <option value="false">false</option>
+              <option value="true">true</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="data-sync-auto">Auto Sync</label>
+            <select id="data-sync-auto" value={dataSyncAuto ? "true" : "false"} onChange={(e) => setDataSyncAuto(e.target.value === "true")}>
+              <option value="false">false</option>
+              <option value="true">true</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="external-db-url">External Database URL (Postgres)</label>
+            <input
+              id="external-db-url"
+              value={externalDbUrl}
+              onChange={(e) => setExternalDbUrl(e.target.value)}
+              placeholder="postgresql://user:pass@host:5432/dbname?schema=public"
+            />
+          </div>
+        </div>
+        <p className="muted" style={{ marginTop: 8 }}>
+          Stored URL: {hasExternalDbUrl ? "configured" : "not configured"} | Validated: {dataSyncValidated ? "yes" : "no"}
+        </p>
+        <p className="muted">
+          Last test: {dataSyncLastTestedAt ? new Date(dataSyncLastTestedAt).toLocaleString() : "never"} | Last sync:{" "}
+          {dataSyncLastSyncAt ? new Date(dataSyncLastSyncAt).toLocaleString() : "never"} {dataSyncLastSyncStatus ? `(${dataSyncLastSyncStatus})` : ""}
+        </p>
+        {dataSyncLastSyncMessage ? <p className="muted">Last message: {dataSyncLastSyncMessage}</p> : null}
+        <div className="button-row" style={{ marginTop: 12 }}>
+          <button className="button" disabled={savingDataSync} onClick={saveDataSyncConfig}>
+            {savingDataSync ? "Saving..." : "Save Sync Settings"}
+          </button>
+          <button className="button button-ghost" disabled={testingDataSync} onClick={testDataSyncConnection}>
+            {testingDataSync ? "Testing..." : "Test DB Connection"}
+          </button>
+          <button className="button button-ghost" disabled={runningDataSync} onClick={runDataSyncNow}>
+            {runningDataSync ? "Syncing..." : "Run Sync Now"}
+          </button>
+        </div>
+      </section>
+
+      <section className="card">
+        <p className="eyebrow">Data Sync History</p>
+        <ul className="list">
+          {dataSyncRuns.map((run) => (
+            <li key={run.id} className="list-item">
+              <strong>{run.status}</strong> | {run.recordsSynced} records | {new Date(run.startedAt).toLocaleString()}
+              {run.errorMessage ? ` | ${run.errorMessage}` : ""}
+            </li>
+          ))}
+          {dataSyncRuns.length === 0 ? <li className="list-item">No data sync runs yet.</li> : null}
+        </ul>
       </section>
 
       <section className="card">
