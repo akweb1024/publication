@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
-import { ArticleStatus } from "@prisma/client";
+import type { ArticleStatus as ArticleStatusType } from "@prisma/client";
 import { z } from "zod";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
@@ -59,7 +59,7 @@ export class PublishingController {
   }
 
   @Get("journals/:journalSlug/articles")
-  async listArticles(@Param("journalSlug") journalSlug: string, @Query("status") status?: ArticleStatus) {
+  async listArticles(@Param("journalSlug") journalSlug: string, @Query("status") status?: ArticleStatusType) {
     return this.publishing.listArticles(journalSlug, status);
   }
 
