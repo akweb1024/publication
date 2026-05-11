@@ -1,0 +1,15 @@
+FROM node:20-alpine
+WORKDIR /app
+RUN apk add --no-cache libc6-compat openssl
+
+# Install only the packages needed for migration
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/api/package.json apps/api/package.json
+COPY packages/db/package.json packages/db/package.json
+RUN corepack enable && corepack pnpm install --frozen-lockfile
+
+# Copy the prisma schema and migrations
+COPY packages/db ./packages/db
+
+# Run prisma migrate deploy via the pnpm script (db:deploy = prisma migrate deploy)
+CMD ["corepack", "pnpm", "--filter", "@pub/db", "db:deploy"]

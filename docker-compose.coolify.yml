@@ -41,19 +41,13 @@ services:
   migrate:
     build:
       context: .
-      dockerfile: Dockerfile.api
+      dockerfile: Dockerfile.migrate
     restart: "no"
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://pub:change-me@postgres:5432/pub}
     depends_on:
       postgres:
         condition: service_healthy
-    command:
-      [
-        "sh",
-        "-c",
-        "packages/db/node_modules/.bin/prisma migrate deploy --schema /app/packages/db/prisma/schema.prisma",
-      ]
 
   api:
     build:
