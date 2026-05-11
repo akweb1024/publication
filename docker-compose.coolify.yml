@@ -52,7 +52,7 @@ services:
       [
         "sh",
         "-c",
-        "node packages/db/node_modules/.bin/prisma migrate deploy --schema /app/packages/db/prisma/schema.prisma",
+        "packages/db/node_modules/.bin/prisma migrate deploy --schema /app/packages/db/prisma/schema.prisma",
       ]
 
   api:
