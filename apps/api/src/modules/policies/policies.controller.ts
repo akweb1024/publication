@@ -1,11 +1,13 @@
 import { Body, Controller, Get, Inject, NotFoundException, Param, Post, UseGuards } from "@nestjs/common";
-import { JournalRole } from "@prisma/client";
+import * as prismaClient from "@prisma/client";
 import { z } from "zod";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { JournalRoleGuard } from "../auth/journal-role.guard.js";
 import { RequireJournalRoles } from "../auth/journal-role.guard.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+
+const { JournalRole } = prismaClient as { JournalRole: typeof import("@prisma/client").JournalRole };
 
 const CreatePolicyVersionDto = z.object({
   effectiveFrom: z.string().datetime(),

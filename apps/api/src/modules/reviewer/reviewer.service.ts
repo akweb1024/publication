@@ -1,6 +1,15 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { ReviewRecommendation, ReviewAssignmentStatus } from "@prisma/client";
+import * as prismaClient from "@prisma/client";
+import type {
+  ReviewRecommendation as ReviewRecommendationType,
+  ReviewAssignmentStatus as ReviewAssignmentStatusType,
+} from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
+
+const { ReviewRecommendation, ReviewAssignmentStatus } = prismaClient as {
+  ReviewRecommendation: typeof import("@prisma/client").ReviewRecommendation;
+  ReviewAssignmentStatus: typeof import("@prisma/client").ReviewAssignmentStatus;
+};
 
 @Injectable()
 export class ReviewerService {
@@ -46,12 +55,12 @@ export class ReviewerService {
   async submitReview(
     assignmentId: string,
     userId: string,
-    input: { recommendation: ReviewRecommendation; commentsToAuthor: string; commentsToEditor?: string }
+    input: { recommendation: ReviewRecommendationType; commentsToAuthor: string; commentsToEditor?: string }
   ) {
     const assignment = await this.prisma.reviewAssignment.findUnique({ where: { id: assignmentId } });
     if (!assignment) throw new NotFoundException("Assignment not found");
     if (assignment.reviewerUserId !== userId) throw new ForbiddenException();
-    const allowed: ReviewAssignmentStatus[] = [ReviewAssignmentStatus.ACCEPTED, ReviewAssignmentStatus.OVERDUE];
+    const allowed: ReviewAssignmentStatusType[] = [ReviewAssignmentStatus.ACCEPTED, ReviewAssignmentStatus.OVERDUE];
     if (!allowed.includes(assignment.status)) {
       throw new BadRequestException("Assignment not accepted");
     }

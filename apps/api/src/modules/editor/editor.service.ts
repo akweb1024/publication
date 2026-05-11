@@ -1,9 +1,22 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { DecisionType, EditorAssignmentRole, JournalRole, SubmissionStatus } from "@prisma/client";
+import * as prismaClient from "@prisma/client";
+import type {
+  DecisionType as DecisionTypeType,
+  EditorAssignmentRole as EditorAssignmentRoleType,
+  JournalRole as JournalRoleType,
+  SubmissionStatus as SubmissionStatusType,
+} from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { EmailQueueService } from "../queues/queues.service.js";
 
-const EDITOR_ROLES: JournalRole[] = [
+const { DecisionType, EditorAssignmentRole, JournalRole, SubmissionStatus } = prismaClient as {
+  DecisionType: typeof import("@prisma/client").DecisionType;
+  EditorAssignmentRole: typeof import("@prisma/client").EditorAssignmentRole;
+  JournalRole: typeof import("@prisma/client").JournalRole;
+  SubmissionStatus: typeof import("@prisma/client").SubmissionStatus;
+};
+
+const EDITOR_ROLES: JournalRoleType[] = [
   JournalRole.JOURNAL_ADMIN,
   JournalRole.EDITOR_IN_CHIEF,
   JournalRole.MANAGING_EDITOR,
@@ -26,7 +39,7 @@ export class EditorService {
     if (!ok) throw new ForbiddenException();
   }
 
-  async queue(journalSlug: string, userId: string, status?: SubmissionStatus) {
+  async queue(journalSlug: string, userId: string, status?: SubmissionStatusType) {
     const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
     if (!journal) throw new NotFoundException("Journal not found");
     await this.ensureEditor(userId, journal.id);
@@ -135,7 +148,7 @@ export class EditorService {
     };
   }
 
-  async assignEditor(submissionId: string, actorUserId: string, assigneeUserId: string, role: EditorAssignmentRole) {
+  async assignEditor(submissionId: string, actorUserId: string, assigneeUserId: string, role: EditorAssignmentRoleType) {
     const submission = await this.prisma.submission.findUnique({
       where: { id: submissionId },
       select: { id: true, journalId: true, status: true },
@@ -169,7 +182,7 @@ export class EditorService {
     });
     if (!submission) throw new NotFoundException("Submission not found");
     await this.ensureEditor(actorUserId, submission.journalId);
-    const allowed: SubmissionStatus[] = [SubmissionStatus.EDITOR_ASSIGNED, SubmissionStatus.SUBMITTED, SubmissionStatus.TRIAGE];
+    const allowed: SubmissionStatusType[] = [SubmissionStatus.EDITOR_ASSIGNED, SubmissionStatus.SUBMITTED, SubmissionStatus.TRIAGE];
     if (!allowed.includes(submission.status)) {
       throw new BadRequestException("Cannot start review round from current status");
     }
@@ -256,7 +269,7 @@ export class EditorService {
   async decide(
     submissionId: string,
     actorUserId: string,
-    input: { type: DecisionType; letterToAuthor: string; internalNote?: string }
+    input: { type: DecisionTypeType; letterToAuthor: string; internalNote?: string }
   ) {
     const submission = await this.prisma.submission.findUnique({
       where: { id: submissionId },

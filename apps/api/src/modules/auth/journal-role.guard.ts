@@ -1,12 +1,14 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable, NotFoundException, SetMetadata } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { Reflector } from "@nestjs/core";
-import { JournalRole } from "@prisma/client";
+import * as prismaClient from "@prisma/client";
+import type { JournalRole as JournalRoleType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 const META_KEY = "journalRoles";
+const { JournalRole } = prismaClient as { JournalRole: typeof import("@prisma/client").JournalRole };
 
-export const RequireJournalRoles = (...roles: JournalRole[]) => SetMetadata(META_KEY, roles);
+export const RequireJournalRoles = (...roles: JournalRoleType[]) => SetMetadata(META_KEY, roles);
 
 @Injectable()
 export class JournalRoleGuard implements CanActivate {
@@ -17,8 +19,8 @@ export class JournalRoleGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext) {
     const handler = context.getHandler();
-    const required = (this.reflector.get<JournalRole[]>(META_KEY, handler) ??
-      this.reflector.get<JournalRole[]>(META_KEY, context.getClass())) as JournalRole[] | undefined;
+    const required = (this.reflector.get<JournalRoleType[]>(META_KEY, handler) ??
+      this.reflector.get<JournalRoleType[]>(META_KEY, context.getClass())) as JournalRoleType[] | undefined;
     if (!required || required.length === 0) return true;
 
     const req = context.switchToHttp().getRequest<FastifyRequest>();

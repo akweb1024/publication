@@ -1,7 +1,13 @@
 import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { HeadBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import { Client as PgClient } from "pg";
-import { DataSyncRunStatus, JournalRole, StorageProvider, StorageTarget } from "@prisma/client";
+import * as prismaClient from "@prisma/client";
+import type {
+  DataSyncRunStatus as DataSyncRunStatusType,
+  JournalRole as JournalRoleType,
+  StorageProvider as StorageProviderType,
+  StorageTarget as StorageTargetType,
+} from "@prisma/client";
 import { z } from "zod";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
@@ -9,6 +15,13 @@ import { PrismaService } from "../prisma/prisma.service.js";
 import { ConfigService } from "@nestjs/config";
 import { decryptJson, encryptJson } from "../storage/secret-crypto.js";
 import { StorageService } from "../storage/storage.service.js";
+
+const { DataSyncRunStatus, JournalRole, StorageProvider, StorageTarget } = prismaClient as {
+  DataSyncRunStatus: typeof import("@prisma/client").DataSyncRunStatus;
+  JournalRole: typeof import("@prisma/client").JournalRole;
+  StorageProvider: typeof import("@prisma/client").StorageProvider;
+  StorageTarget: typeof import("@prisma/client").StorageTarget;
+};
 
 const UpdateJournalDto = z.object({
   title: z.string().min(1).optional(),
@@ -20,7 +33,7 @@ const UpdateJournalDto = z.object({
   requiredPolicyKeys: z.array(z.string().min(1)).optional(),
 });
 
-const SETTINGS_ROLES: JournalRole[] = [
+const SETTINGS_ROLES: JournalRoleType[] = [
   JournalRole.JOURNAL_ADMIN,
   JournalRole.EDITOR_IN_CHIEF,
   JournalRole.MANAGING_EDITOR,

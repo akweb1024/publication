@@ -1,10 +1,13 @@
 import { ConflictException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
-import { JournalRole } from "@prisma/client";
+import * as prismaClient from "@prisma/client";
+import type { JournalRole as JournalRoleType } from "@prisma/client";
 import argon2 from "argon2";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { buildOtpAuthUri, generateTotpSecret, verifyTotpCode } from "./totp.util.js";
 
-const MFA_REQUIRED_ROLES: JournalRole[] = [
+const { JournalRole } = prismaClient as { JournalRole: typeof import("@prisma/client").JournalRole };
+
+const MFA_REQUIRED_ROLES: JournalRoleType[] = [
   JournalRole.JOURNAL_ADMIN,
   JournalRole.EDITOR_IN_CHIEF,
   JournalRole.MANAGING_EDITOR,
@@ -13,7 +16,7 @@ const MFA_REQUIRED_ROLES: JournalRole[] = [
   JournalRole.COPYEDITOR,
   JournalRole.PRODUCTION_EDITOR,
 ];
-const EDITORIAL_ROLES: JournalRole[] = [
+const EDITORIAL_ROLES: JournalRoleType[] = [
   JournalRole.JOURNAL_ADMIN,
   JournalRole.EDITOR_IN_CHIEF,
   JournalRole.MANAGING_EDITOR,
@@ -22,7 +25,7 @@ const EDITORIAL_ROLES: JournalRole[] = [
   JournalRole.COPYEDITOR,
   JournalRole.PRODUCTION_EDITOR,
 ];
-const MANAGEMENT_ROLES: JournalRole[] = [
+const MANAGEMENT_ROLES: JournalRoleType[] = [
   JournalRole.JOURNAL_ADMIN,
   JournalRole.EDITOR_IN_CHIEF,
   JournalRole.MANAGING_EDITOR,

@@ -1,9 +1,15 @@
 import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
-import { DecisionType, EditorAssignmentRole, SubmissionStatus } from "@prisma/client";
+import * as prismaClient from "@prisma/client";
+import type { SubmissionStatus } from "@prisma/client";
 import { z } from "zod";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { EditorService } from "./editor.service.js";
+
+const { DecisionType, EditorAssignmentRole } = prismaClient as {
+  DecisionType: typeof import("@prisma/client").DecisionType;
+  EditorAssignmentRole: typeof import("@prisma/client").EditorAssignmentRole;
+};
 
 const AssignEditorDto = z.object({
   userId: z.string().uuid(),

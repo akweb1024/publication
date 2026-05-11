@@ -17,6 +17,10 @@ export default function LoginPage() {
   const [mfaCode, setMfaCode] = useState("");
   const [mfaSecret, setMfaSecret] = useState<string | null>(null);
   const [mfaUri, setMfaUri] = useState<string | null>(null);
+  const isLocalOrDev =
+    process.env.NODE_ENV !== "production" ||
+    (process.env.NEXT_PUBLIC_API_BASE ?? "").includes("localhost") ||
+    (process.env.NEXT_PUBLIC_API_BASE ?? "").includes("127.0.0.1");
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,7 +45,12 @@ export default function LoginPage() {
       }
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err?.message ?? "Login failed");
+      const raw = err?.message ?? "Login failed";
+      if (String(raw).toLowerCase().includes("failed to fetch")) {
+        setError("Unable to reach API. Check NEXT_PUBLIC_API_BASE and ensure API server is running.");
+      } else {
+        setError(raw);
+      }
     } finally {
       setLoading(false);
     }
@@ -82,6 +91,11 @@ export default function LoginPage() {
           </p>
         </div>
         <form className="card auth-card" onSubmit={mfaRequired ? onVerifyMfa : onSubmit}>
+          {isLocalOrDev && !mfaRequired ? (
+            <div className="note-banner" role="note">
+              <strong>Local seed access:</strong> use <code>admin@publisher.local</code> / <code>admin123</code>. MFA setup is required on first login.
+            </div>
+          ) : null}
           {mfaRequired ? (
             <>
               <p className="eyebrow">{mfaEnrollmentRequired ? "MFA Setup Required" : "MFA Verification"}</p>

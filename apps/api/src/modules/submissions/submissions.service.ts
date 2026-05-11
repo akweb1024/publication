@@ -1,8 +1,14 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { JournalRole, SubmissionStatus } from "@prisma/client";
+import * as prismaClient from "@prisma/client";
+import type { JournalRole as JournalRoleType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
 import crypto from "node:crypto";
 import { StorageService } from "../storage/storage.service.js";
+
+const { JournalRole, SubmissionStatus } = prismaClient as {
+  JournalRole: typeof import("@prisma/client").JournalRole;
+  SubmissionStatus: typeof import("@prisma/client").SubmissionStatus;
+};
 
 function trackingCodeFromSlug(slug: string) {
   const code = slug.replace(/[^a-z0-9]/gi, "").toUpperCase();
@@ -62,7 +68,7 @@ export class SubmissionsService {
     if (!submission) throw new NotFoundException("Submission not found");
 
     const isSubmitter = submission.submitterUserId === userId;
-    const editorRoles: JournalRole[] = [
+    const editorRoles: JournalRoleType[] = [
       JournalRole.JOURNAL_ADMIN,
       JournalRole.EDITOR_IN_CHIEF,
       JournalRole.MANAGING_EDITOR,

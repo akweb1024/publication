@@ -1,9 +1,15 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { ArticleStatus, JournalRole } from "@prisma/client";
+import * as prismaClient from "@prisma/client";
+import type { ArticleStatus as ArticleStatusType, JournalRole as JournalRoleType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { EmailQueueService } from "../queues/queues.service.js";
 
-const EDITOR_ROLES: JournalRole[] = [
+const { ArticleStatus, JournalRole } = prismaClient as {
+  ArticleStatus: typeof import("@prisma/client").ArticleStatus;
+  JournalRole: typeof import("@prisma/client").JournalRole;
+};
+
+const EDITOR_ROLES: JournalRoleType[] = [
   JournalRole.JOURNAL_ADMIN,
   JournalRole.EDITOR_IN_CHIEF,
   JournalRole.MANAGING_EDITOR,
@@ -117,7 +123,7 @@ export class PublishingService {
     return article;
   }
 
-  async listArticles(journalSlug: string, status?: ArticleStatus) {
+  async listArticles(journalSlug: string, status?: ArticleStatusType) {
     const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
     if (!journal) throw new NotFoundException("Journal not found");
     const items = await this.prisma.article.findMany({

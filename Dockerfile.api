@@ -1,12 +1,16 @@
-FROM node:20-alpine AS base
+FROM node:20-bookworm-slim AS base
 WORKDIR /app
-RUN apk add --no-cache libc6-compat openssl
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/api/package.json apps/api/package.json
 COPY packages/db/package.json packages/db/package.json
+COPY packages/db/prisma ./packages/db/prisma
 RUN corepack enable && corepack pnpm install --frozen-lockfile
+RUN corepack pnpm --filter @pub/db db:generate
 
 FROM deps AS builder
 COPY tsconfig.base.json ./

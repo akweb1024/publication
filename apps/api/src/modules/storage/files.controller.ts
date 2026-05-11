@@ -1,10 +1,13 @@
 import { Controller, Get, Inject, NotFoundException, Param, Res, UnauthorizedException, Req, ForbiddenException } from "@nestjs/common";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { JournalRole } from "@prisma/client";
+import * as prismaClient from "@prisma/client";
+import type { JournalRole as JournalRoleType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { StorageService } from "./storage.service.js";
 
-const RESTRICTED_PDF_ALLOWED_ROLES: JournalRole[] = [
+const { JournalRole } = prismaClient as { JournalRole: typeof import("@prisma/client").JournalRole };
+
+const RESTRICTED_PDF_ALLOWED_ROLES: JournalRoleType[] = [
   JournalRole.JOURNAL_ADMIN,
   JournalRole.EDITOR_IN_CHIEF,
   JournalRole.MANAGING_EDITOR,

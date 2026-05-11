@@ -1,9 +1,13 @@
 import { Body, Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/common";
-import { ReviewRecommendation } from "@prisma/client";
+import * as prismaClient from "@prisma/client";
 import { z } from "zod";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { ReviewerService } from "./reviewer.service.js";
+
+const { ReviewRecommendation } = prismaClient as {
+  ReviewRecommendation: typeof import("@prisma/client").ReviewRecommendation;
+};
 
 const RespondDto = z.object({
   response: z.enum(["accept", "decline"]),
