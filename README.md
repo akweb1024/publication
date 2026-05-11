@@ -65,7 +65,8 @@ Full guide: [docs/COOLIFY_DEPLOYMENT.md](/home/itb09/Desktop/test/publication/do
 At minimum, configure:
 
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
-- `DATABASE_URL` (`postgresql://<user>:<password>@postgres:5432/<db>`)
+- `DATABASE_URL_INTERNAL` (`postgresql://<user>:<password>@postgres:5432/<db>?schema=public`) for in-stack services
+- Optional `DATABASE_URL` for host tools/scripts outside Docker
 - `REDIS_URL` (`redis://redis:6379`)
 - `SESSION_SECRET` (32+ chars)
 - `WEB_ORIGIN`

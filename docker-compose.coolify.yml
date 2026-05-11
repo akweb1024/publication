@@ -44,7 +44,7 @@ services:
       dockerfile: Dockerfile.migrate
     restart: "no"
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://pub:change-me@postgres:5432/pub}
+      DATABASE_URL: ${DATABASE_URL_INTERNAL:-postgresql://${POSTGRES_USER:-pub}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-pub}?schema=public}
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,7 +59,7 @@ services:
       API_PORT: 4000
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       API_BASE: ${API_BASE:-http://api:4000/api/v1}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://pub:change-me@postgres:5432/pub}
+      DATABASE_URL: ${DATABASE_URL_INTERNAL:-postgresql://${POSTGRES_USER:-pub}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-pub}?schema=public}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       SESSION_SECRET: ${SESSION_SECRET}
       S3_ENDPOINT: ${S3_ENDPOINT}
