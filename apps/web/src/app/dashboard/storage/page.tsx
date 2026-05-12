@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { apiJson } from "../../../lib/clientApi";
 import { errorMessage } from "../../../lib/errorMessage";
 import ErrorAlert from "../../../components/ErrorAlert";
+import AppShell from "../../../components/dashboard/AppShell";
+import StatusBadge from "../../../components/dashboard/StatusBadge";
+import ToastNotification from "../../../components/dashboard/ToastNotification";
+import SkeletonBlock from "../../../components/dashboard/SkeletonBlock";
+import ConfirmationModal from "../../../components/dashboard/ConfirmationModal";
 
 type Journal = { id: string; slug: string; title: string };
 type StorageConfig = {
@@ -60,7 +64,8 @@ export default function StorageSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ tone: "success" | "error" | "info"; message: string } | null>(null);
+  const [confirmSyncOpen, setConfirmSyncOpen] = useState(false);
 
   const [localPathPrefix, setLocalPathPrefix] = useState("system");
   const [externalPathPrefixes, setExternalPathPrefixes] = useState("submissions, uploads, manuscripts, exports");
@@ -77,6 +82,7 @@ export default function StorageSettingsPage() {
   const [simulating, setSimulating] = useState(false);
   const [simulationKey, setSimulationKey] = useState("");
   const [simulation, setSimulation] = useState<SimulationResult | null>(null);
+
   const [dataSyncEnabled, setDataSyncEnabled] = useState(false);
   const [dataSyncAuto, setDataSyncAuto] = useState(false);
   const [externalDbUrl, setExternalDbUrl] = useState("");
@@ -92,8 +98,13 @@ export default function StorageSettingsPage() {
   const [runningDataSync, setRunningDataSync] = useState(false);
 
   const externalPrefixes = useMemo(
-    () => externalPathPrefixes.split(",").map((s) => s.trim()).filter(Boolean),
+    () => externalPathPrefixes.split(",").map((item) => item.trim()).filter(Boolean),
     [externalPathPrefixes]
+  );
+
+  const selectedJournalTitle = useMemo(
+    () => journals.find((journal) => journal.slug === journalSlug)?.title ?? "No journal selected",
+    [journals, journalSlug]
   );
 
   async function loadJournalConfig(slug: string) {
@@ -124,7 +135,7 @@ export default function StorageSettingsPage() {
     setDataSyncLastSyncMessage(syncCfg.lastSyncMessage);
     setExternalDbUrl("");
 
-    const syncRuns = await apiJson<{ items: DataSyncRun[] }>(`/journals/${encodeURIComponent(slug)}/data-sync/runs?limit=10`, { method: "GET" });
+    const syncRuns = await apiJson<{ items: DataSyncRun[] }>(`/journals/${encodeURIComponent(slug)}/data-sync/runs?limit=20`, { method: "GET" });
     setDataSyncRuns(syncRuns.items);
   }
 
@@ -156,8 +167,7 @@ export default function StorageSettingsPage() {
 
   async function onJournalChange(nextSlug: string) {
     setJournalSlug(nextSlug);
-    setMessage(null);
-    setError(null);
+        setError(null);
     try {
       await loadJournalConfig(nextSlug);
     } catch (err: unknown) {
@@ -169,8 +179,7 @@ export default function StorageSettingsPage() {
     if (!journalSlug) return;
     setSaving(true);
     setError(null);
-    setMessage(null);
-    try {
+        try {
       await apiJson(`/journals/${encodeURIComponent(journalSlug)}/storage-config`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -188,7 +197,7 @@ export default function StorageSettingsPage() {
               : undefined,
         }),
       });
-      setMessage("Storage configuration saved.");
+      setToast({ tone: "success", message: "Storage configuration saved." });
       await loadJournalConfig(journalSlug);
     } catch (err: unknown) {
       setError(errorMessage(err) || "Failed to save storage configuration");
@@ -205,8 +214,7 @@ export default function StorageSettingsPage() {
     }
     setTesting(true);
     setError(null);
-    setMessage(null);
-    try {
+        try {
       await apiJson(`/journals/${encodeURIComponent(journalSlug)}/storage-config/test`, {
         method: "POST",
         body: JSON.stringify({
@@ -221,7 +229,7 @@ export default function StorageSettingsPage() {
           },
         }),
       });
-      setMessage("External storage connection test succeeded.");
+      setToast({ tone: "success", message: "External storage connection test succeeded." });
     } catch (err: unknown) {
       setError(errorMessage(err) || "External storage connection test failed");
     } finally {
@@ -233,14 +241,13 @@ export default function StorageSettingsPage() {
     if (!journalSlug || !simulationKey.trim()) return;
     setSimulating(true);
     setError(null);
-    setMessage(null);
-    try {
+        try {
       const result = await apiJson<SimulationResult>(`/journals/${encodeURIComponent(journalSlug)}/storage-config/simulate`, {
         method: "POST",
         body: JSON.stringify({ key: simulationKey.trim() }),
       });
       setSimulation(result);
-      setMessage("Routing simulation completed.");
+      setToast({ tone: "info", message: "Routing simulation completed." });
     } catch (err: unknown) {
       setError(errorMessage(err) || "Failed to simulate storage routing");
     } finally {
@@ -252,8 +259,7 @@ export default function StorageSettingsPage() {
     if (!journalSlug) return;
     setSavingDataSync(true);
     setError(null);
-    setMessage(null);
-    try {
+        try {
       await apiJson(`/journals/${encodeURIComponent(journalSlug)}/data-sync-config`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -262,7 +268,7 @@ export default function StorageSettingsPage() {
           externalDatabaseUrl: externalDbUrl.trim() || undefined,
         }),
       });
-      setMessage("External database sync settings saved.");
+      setToast({ tone: "success", message: "External database sync settings saved." });
       await loadJournalConfig(journalSlug);
     } catch (err: unknown) {
       setError(errorMessage(err) || "Failed to save external database sync settings");
@@ -275,13 +281,12 @@ export default function StorageSettingsPage() {
     if (!journalSlug) return;
     setTestingDataSync(true);
     setError(null);
-    setMessage(null);
-    try {
+        try {
       await apiJson(`/journals/${encodeURIComponent(journalSlug)}/data-sync-config/test`, {
         method: "POST",
         body: JSON.stringify({ externalDatabaseUrl: externalDbUrl.trim() || undefined }),
       });
-      setMessage("External database connection test succeeded.");
+      setToast({ tone: "success", message: "External database connection test succeeded." });
       await loadJournalConfig(journalSlug);
     } catch (err: unknown) {
       setError(errorMessage(err) || "External database connection test failed");
@@ -294,8 +299,7 @@ export default function StorageSettingsPage() {
     if (!journalSlug) return;
     setRunningDataSync(true);
     setError(null);
-    setMessage(null);
-    try {
+        try {
       const result = await apiJson<{ ok: true; runId: string; recordsSynced: number }>(
         `/journals/${encodeURIComponent(journalSlug)}/data-sync/sync-now`,
         {
@@ -303,117 +307,174 @@ export default function StorageSettingsPage() {
           body: JSON.stringify({ externalDatabaseUrl: externalDbUrl.trim() || undefined }),
         }
       );
-      setMessage(`Data sync completed. Synced ${result.recordsSynced} records.`);
+      setToast({ tone: "success", message: `Data sync completed. Synced ${result.recordsSynced} records.` });
       await loadJournalConfig(journalSlug);
     } catch (err: unknown) {
       setError(errorMessage(err) || "Data sync failed");
+      setToast({ tone: "error", message: "Data sync failed." });
     } finally {
       setRunningDataSync(false);
+      setConfirmSyncOpen(false);
     }
   }
 
-  if (loading) return <p>Loading storage settings...</p>;
+  function syncStatusTone() {
+    if (runningDataSync) return "info" as const;
+    if (dataSyncLastSyncStatus === "SUCCESS") return "ok" as const;
+    if (dataSyncLastSyncStatus === "FAILED") return "danger" as const;
+    if (dataSyncValidated) return "info" as const;
+    if (hasExternalDbUrl) return "warn" as const;
+    return "neutral" as const;
+  }
+
+  function syncStatusLabel() {
+    if (runningDataSync) return "Syncing";
+    if (dataSyncLastSyncStatus === "SUCCESS") return "Connected";
+    if (dataSyncLastSyncStatus === "FAILED") return "Failed";
+    if (dataSyncValidated) return "Connected";
+    if (hasExternalDbUrl) return "Not Tested";
+    return "Not Configured";
+  }
+
+  if (loading) {
+    return (
+      <main className="dashboard-page-content">
+        <SkeletonBlock height={42} />
+        <SkeletonBlock height={150} />
+        <SkeletonBlock height={240} />
+      </main>
+    );
+  }
 
   return (
-    <main className="main-stack">
-      <section className="hero">
-        <h1>Storage Settings</h1>
-        <p>Configure hybrid storage policy and external provider for journal files.</p>
-        <div className="meta-row">
-          <Link href="/dashboard/journals" className="button button-ghost compact">Back to Journal Settings</Link>
-        </div>
-      </section>
-
-      {message ? <p style={{ color: "var(--accent-2)", fontWeight: 700 }}>{message}</p> : null}
+    <AppShell
+      title="Storage Settings"
+      sectionLabel="Storage"
+      description="Manage routing policy, external object storage credentials, and external database sync operations."
+      selectedJournalLabel={selectedJournalTitle}
+      breadcrumbItems={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Publishing", href: "/dashboard/publishing" },
+        { label: "Storage Settings", href: "/dashboard/storage" },
+      ]}
+      journals={journals}
+      selectedJournalSlug={journalSlug}
+      onJournalChange={onJournalChange}
+      quickActions={[
+        { label: "Save Settings", onClick: saveConfig, variant: "primary" },
+        { label: "Test Connection", onClick: testConnection, variant: "secondary" },
+        { label: "Run Sync Now", onClick: () => setConfirmSyncOpen(true), variant: "ghost" },
+      ]}
+      actions={<StatusBadge label={syncStatusLabel()} tone={syncStatusTone()} />}
+    >
       {error ? <ErrorAlert message={error} /> : null}
 
       <section className="card">
-        <p className="eyebrow">Target Journal</p>
-        <div className="field" style={{ marginTop: 8 }}>
-          <label htmlFor="journal-storage-slug">Journal</label>
-          <select id="journal-storage-slug" value={journalSlug} onChange={(e) => onJournalChange(e.target.value)}>
-            {journals.map((journal) => (
-              <option key={journal.id} value={journal.slug}>{journal.title} ({journal.slug})</option>
-            ))}
-          </select>
+        <p className="eyebrow">External Database Sync</p>
+        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <StatusBadge label={syncStatusLabel()} tone={syncStatusTone()} />
+          <StatusBadge label={dataSyncValidated ? "Validated" : "Unvalidated"} tone={dataSyncValidated ? "ok" : "warn"} />
+          <StatusBadge label={hasExternalDbUrl ? "URL Configured" : "URL Missing"} tone={hasExternalDbUrl ? "info" : "warn"} />
         </div>
-      </section>
 
-      <section className="card">
-        <p className="eyebrow">External Database Sync (Optional)</p>
-        <div className="grid" style={{ gap: 12 }}>
+        <div className="dashboard-grid-three" style={{ marginTop: 10 }}>
           <div className="field">
             <label htmlFor="data-sync-enabled">Sync Enabled</label>
-            <select id="data-sync-enabled" value={dataSyncEnabled ? "true" : "false"} onChange={(e) => setDataSyncEnabled(e.target.value === "true")}>
+            <select id="data-sync-enabled" className="select" value={dataSyncEnabled ? "true" : "false"} onChange={(e) => setDataSyncEnabled(e.target.value === "true")}>
               <option value="false">false</option>
               <option value="true">true</option>
             </select>
           </div>
           <div className="field">
             <label htmlFor="data-sync-auto">Auto Sync</label>
-            <select id="data-sync-auto" value={dataSyncAuto ? "true" : "false"} onChange={(e) => setDataSyncAuto(e.target.value === "true")}>
+            <select id="data-sync-auto" className="select" value={dataSyncAuto ? "true" : "false"} onChange={(e) => setDataSyncAuto(e.target.value === "true")}>
               <option value="false">false</option>
               <option value="true">true</option>
             </select>
           </div>
           <div className="field">
-            <label htmlFor="external-db-url">External Database URL (Postgres)</label>
+            <label htmlFor="external-db-url">External Postgres URL</label>
             <input
               id="external-db-url"
+              className="input"
+              type="password"
               value={externalDbUrl}
               onChange={(e) => setExternalDbUrl(e.target.value)}
               placeholder="postgresql://user:pass@host:5432/dbname?schema=public"
             />
+            <p className="muted">Use full Postgres URL including database name and optional schema query.</p>
           </div>
         </div>
+
         <p className="muted" style={{ marginTop: 8 }}>
-          Stored URL: {hasExternalDbUrl ? "configured" : "not configured"} | Validated: {dataSyncValidated ? "yes" : "no"}
+          Last Tested: {dataSyncLastTestedAt ? new Date(dataSyncLastTestedAt).toLocaleString() : "Never"} | Last Synced: {dataSyncLastSyncAt ? new Date(dataSyncLastSyncAt).toLocaleString() : "Never"}
         </p>
-        <p className="muted">
-          Last test: {dataSyncLastTestedAt ? new Date(dataSyncLastTestedAt).toLocaleString() : "never"} | Last sync:{" "}
-          {dataSyncLastSyncAt ? new Date(dataSyncLastSyncAt).toLocaleString() : "never"} {dataSyncLastSyncStatus ? `(${dataSyncLastSyncStatus})` : ""}
-        </p>
-        {dataSyncLastSyncMessage ? <p className="muted">Last message: {dataSyncLastSyncMessage}</p> : null}
-        <div className="button-row" style={{ marginTop: 12 }}>
-          <button className="button" disabled={savingDataSync} onClick={saveDataSyncConfig}>
-            {savingDataSync ? "Saving..." : "Save Sync Settings"}
+        {dataSyncLastSyncMessage ? <p className="muted">Last Message: {dataSyncLastSyncMessage}</p> : null}
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+          <button className="button button-primary compact" disabled={savingDataSync} onClick={saveDataSyncConfig}>
+            {savingDataSync ? "Saving..." : "Save Settings"}
           </button>
-          <button className="button button-ghost" disabled={testingDataSync} onClick={testDataSyncConnection}>
-            {testingDataSync ? "Testing..." : "Test DB Connection"}
+          <button className="button compact" disabled={testingDataSync} onClick={testDataSyncConnection}>
+            {testingDataSync ? "Testing..." : "Test Connection"}
           </button>
-          <button className="button button-ghost" disabled={runningDataSync} onClick={runDataSyncNow}>
+          <button className="button button-ghost compact" disabled={runningDataSync} onClick={() => setConfirmSyncOpen(true)}>
             {runningDataSync ? "Syncing..." : "Run Sync Now"}
           </button>
         </div>
       </section>
 
       <section className="card">
-        <p className="eyebrow">Data Sync History</p>
-        <ul className="list">
-          {dataSyncRuns.map((run) => (
-            <li key={run.id} className="list-item">
-              <strong>{run.status}</strong> | {run.recordsSynced} records | {new Date(run.startedAt).toLocaleString()}
-              {run.errorMessage ? ` | ${run.errorMessage}` : ""}
-            </li>
-          ))}
-          {dataSyncRuns.length === 0 ? <li className="list-item">No data sync runs yet.</li> : null}
-        </ul>
+        <p className="eyebrow">Sync History</p>
+        {dataSyncRuns.length === 0 ? (
+          <div className="empty-state" style={{ marginTop: 12 }}>
+            <p>No sync runs yet. Save configuration and run your first sync.</p>
+          </div>
+        ) : (
+          <div style={{ marginTop: 10, overflowX: "auto" }}>
+            <table className="sync-history-table">
+              <thead>
+                <tr>
+                  <th>Date & Time</th>
+                  <th>Status</th>
+                  <th>Records Synced</th>
+                  <th>Error Message</th>
+                  <th>Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dataSyncRuns.map((run) => {
+                  const duration = run.finishedAt ? `${Math.max(1, Math.round((new Date(run.finishedAt).getTime() - new Date(run.startedAt).getTime()) / 1000))}s` : "Running";
+                  return (
+                    <tr key={run.id}>
+                      <td>{new Date(run.startedAt).toLocaleString()}</td>
+                      <td><StatusBadge label={run.status} tone={run.status === "SUCCESS" ? "ok" : "danger"} /></td>
+                      <td>{run.recordsSynced}</td>
+                      <td>{run.errorMessage ?? "-"}</td>
+                      <td>{duration}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="card">
-        <p className="eyebrow">Policy Routing</p>
-        <div className="grid" style={{ gap: 12 }}>
+        <p className="eyebrow">Storage Routing Policy</p>
+        <div className="dashboard-grid-three" style={{ marginTop: 10 }}>
           <div className="field">
             <label htmlFor="local-prefix">Local Prefix</label>
-            <input id="local-prefix" value={localPathPrefix} onChange={(e) => setLocalPathPrefix(e.target.value)} placeholder="system" />
+            <input id="local-prefix" className="input" value={localPathPrefix} onChange={(e) => setLocalPathPrefix(e.target.value)} placeholder="system" />
           </div>
           <div className="field">
-            <label htmlFor="external-prefixes">External Prefixes (comma-separated)</label>
-            <input id="external-prefixes" value={externalPathPrefixes} onChange={(e) => setExternalPathPrefixes(e.target.value)} placeholder="submissions, uploads" />
+            <label htmlFor="external-prefixes">External Prefixes</label>
+            <input id="external-prefixes" className="input" value={externalPathPrefixes} onChange={(e) => setExternalPathPrefixes(e.target.value)} placeholder="submissions, uploads" />
           </div>
           <div className="field">
             <label htmlFor="default-target">Default Target</label>
-            <select id="default-target" value={defaultTarget} onChange={(e) => setDefaultTarget(e.target.value as "LOCAL" | "EXTERNAL")}>
+            <select id="default-target" className="select" value={defaultTarget} onChange={(e) => setDefaultTarget(e.target.value as "LOCAL" | "EXTERNAL")}>
               <option value="LOCAL">LOCAL</option>
               <option value="EXTERNAL">EXTERNAL</option>
             </select>
@@ -422,11 +483,11 @@ export default function StorageSettingsPage() {
       </section>
 
       <section className="card">
-        <p className="eyebrow">External Provider</p>
-        <div className="grid" style={{ gap: 12 }}>
+        <p className="eyebrow">External Provider Configuration</p>
+        <div className="dashboard-grid-three" style={{ marginTop: 10 }}>
           <div className="field">
             <label htmlFor="external-provider">Provider</label>
-            <select id="external-provider" value={externalProvider} onChange={(e) => setExternalProvider(e.target.value as StorageConfig["externalProvider"])}>
+            <select id="external-provider" className="select" value={externalProvider} onChange={(e) => setExternalProvider(e.target.value as StorageConfig["externalProvider"])}>
               {PROVIDERS.map((provider) => (
                 <option key={provider} value={provider}>{provider}</option>
               ))}
@@ -434,67 +495,78 @@ export default function StorageSettingsPage() {
           </div>
           <div className="field">
             <label htmlFor="external-endpoint">Endpoint</label>
-            <input id="external-endpoint" value={externalEndpoint} onChange={(e) => setExternalEndpoint(e.target.value)} placeholder="https://s3.amazonaws.com" />
+            <input id="external-endpoint" className="input" value={externalEndpoint} onChange={(e) => setExternalEndpoint(e.target.value)} placeholder="https://s3.amazonaws.com" />
           </div>
           <div className="field">
             <label htmlFor="external-region">Region</label>
-            <input id="external-region" value={externalRegion} onChange={(e) => setExternalRegion(e.target.value)} placeholder="us-east-1" />
+            <input id="external-region" className="input" value={externalRegion} onChange={(e) => setExternalRegion(e.target.value)} placeholder="us-east-1" />
           </div>
           <div className="field">
             <label htmlFor="external-bucket">Bucket</label>
-            <input id="external-bucket" value={externalBucket} onChange={(e) => setExternalBucket(e.target.value)} placeholder="publication" />
+            <input id="external-bucket" className="input" value={externalBucket} onChange={(e) => setExternalBucket(e.target.value)} placeholder="publication" />
           </div>
           <div className="field">
             <label htmlFor="force-path-style">Force Path Style</label>
-            <select id="force-path-style" value={externalForcePathStyle ? "true" : "false"} onChange={(e) => setExternalForcePathStyle(e.target.value === "true")}>
+            <select id="force-path-style" className="select" value={externalForcePathStyle ? "true" : "false"} onChange={(e) => setExternalForcePathStyle(e.target.value === "true")}>
               <option value="true">true</option>
               <option value="false">false</option>
             </select>
           </div>
           <div className="field">
             <label htmlFor="access-key">Access Key ID</label>
-            <input id="access-key" value={accessKeyId} onChange={(e) => setAccessKeyId(e.target.value)} placeholder={hasSecrets ? "Already configured (enter to rotate)" : "AKIA..."} />
+            <input id="access-key" className="input" value={accessKeyId} onChange={(e) => setAccessKeyId(e.target.value)} placeholder={hasSecrets ? "Configured (enter to rotate)" : "AKIA..."} />
           </div>
           <div className="field">
             <label htmlFor="secret-key">Secret Access Key</label>
-            <input id="secret-key" type="password" value={secretAccessKey} onChange={(e) => setSecretAccessKey(e.target.value)} placeholder={hasSecrets ? "Already configured (enter to rotate)" : "Secret key"} />
+            <input id="secret-key" className="input" type="password" value={secretAccessKey} onChange={(e) => setSecretAccessKey(e.target.value)} placeholder={hasSecrets ? "Configured (enter to rotate)" : "Secret key"} />
           </div>
         </div>
-        <p className="muted" style={{ marginTop: 12 }}>
-          Secrets are encrypted at rest and are never returned by this API. {hasSecrets ? `Last updated: ${secretUpdatedAt ?? "unknown"}.` : "No external secrets saved yet."}
+
+        <p className="muted" style={{ marginTop: 8 }}>
+          Secrets are encrypted at rest. {hasSecrets ? `Last updated: ${secretUpdatedAt ?? "unknown"}.` : "No external secrets saved yet."}
         </p>
-        <div className="meta-row" style={{ marginTop: 12 }}>
-          <button className="button" onClick={saveConfig} disabled={saving || testing || !journalSlug || !localPathPrefix.trim()}> 
-            {saving ? "Saving..." : "Save Storage Config"}
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+          <button className="button button-primary compact" onClick={saveConfig} disabled={saving || testing || !journalSlug || !localPathPrefix.trim()}>
+            {saving ? "Saving..." : "Save Settings"}
           </button>
-          <button className="button button-ghost" onClick={testConnection} disabled={saving || testing || !journalSlug}>
-            {testing ? "Testing..." : "Test External Connection"}
+          <button className="button compact" onClick={testConnection} disabled={saving || testing || !journalSlug}>
+            {testing ? "Testing..." : "Test Connection"}
           </button>
         </div>
       </section>
 
       <section className="card">
-        <p className="eyebrow">Provider Simulation (Dry Run)</p>
+        <p className="eyebrow">Routing Simulation</p>
         <div className="field" style={{ marginTop: 10 }}>
           <label htmlFor="simulation-key">File Key</label>
-          <input
-            id="simulation-key"
-            value={simulationKey}
-            onChange={(e) => setSimulationKey(e.target.value)}
-            placeholder={`${journalSlug || "journal-slug"}/submissions/example.pdf`}
-          />
+          <input id="simulation-key" className="input" value={simulationKey} onChange={(e) => setSimulationKey(e.target.value)} placeholder={`${journalSlug || "journal-slug"}/submissions/example.pdf`} />
         </div>
-        <div className="meta-row" style={{ marginTop: 12 }}>
-          <button className="button button-ghost" onClick={simulateRoute} disabled={simulating || !simulationKey.trim() || !journalSlug}>
+        <div style={{ marginTop: 10 }}>
+          <button className="button button-ghost compact" onClick={simulateRoute} disabled={simulating || !simulationKey.trim() || !journalSlug}>
             {simulating ? "Simulating..." : "Simulate Route"}
           </button>
         </div>
         {simulation ? (
-          <pre style={{ marginTop: 12, overflowX: "auto", whiteSpace: "pre-wrap" }}>
-            {JSON.stringify(simulation, null, 2)}
-          </pre>
+          <div className="form-section" style={{ marginTop: 10 }}>
+            <p><strong>Target:</strong> {simulation.simulation.target}</p>
+            <p><strong>Provider:</strong> {simulation.simulation.provider}</p>
+            <p><strong>Reason:</strong> {simulation.simulation.reason}</p>
+            <p><strong>Endpoint:</strong> {simulation.simulation.endpoint}</p>
+            <p><strong>Bucket:</strong> {simulation.simulation.bucket}</p>
+          </div>
         ) : null}
       </section>
-    </main>
+      <ToastNotification open={!!toast} tone={toast?.tone ?? "info"} message={toast?.message ?? ""} onClose={() => setToast(null)} />
+      <ConfirmationModal
+        open={confirmSyncOpen}
+        title="Run External Database Sync"
+        description="This will run sync immediately for the active journal. Continue?"
+        confirmLabel="Run Sync"
+        busy={runningDataSync}
+        onCancel={() => setConfirmSyncOpen(false)}
+        onConfirm={() => void runDataSyncNow()}
+      />
+    </AppShell>
   );
 }
