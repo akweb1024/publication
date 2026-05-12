@@ -65,9 +65,14 @@ export class SubmissionsController {
 
   @UseGuards(SessionGuard)
   @Post("submissions/:submissionId/files")
-  async createUpload(@Param("submissionId") submissionId: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async createUpload(
+    @Param("submissionId") submissionId: string,
+    @Body() body: unknown,
+    @Query("debugStorage") debugStorage: string | undefined,
+    @CurrentUser() user: any
+  ) {
     const dto = CreateUploadDto.parse(body);
-    return this.submissions.createSubmissionUpload(submissionId, user.id, dto);
+    return this.submissions.createSubmissionUpload(submissionId, user.id, dto, debugStorage === "true");
   }
 
   @UseGuards(SessionGuard)

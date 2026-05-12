@@ -227,8 +227,11 @@ export class StorageService {
 
     try {
       const secrets = decryptJson<{ accessKeyId: string; secretAccessKey: string }>(cfg.encryptedSecretJson, this.encryptionSecret);
-      if (!secrets.accessKeyId || !secrets.secretAccessKey) {
-        return { client: defaultProvider.client, bucket: defaultProvider.bucket };
+      const externalCredIssue = this.validateCredentialPair(secrets.accessKeyId, secrets.secretAccessKey);
+      if (externalCredIssue) {
+        throw new BadRequestException(
+          `External storage credentials are invalid for journal "${slug}": ${externalCredIssue}.`
+        );
       }
       const externalClient = new S3Client({
         region: cfg.externalRegion,
@@ -240,7 +243,10 @@ export class StorageService {
         },
       });
       return { client: externalClient, bucket: cfg.externalBucket };
-    } catch {
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       return { client: defaultProvider.client, bucket: defaultProvider.bucket };
     }
   }
@@ -251,12 +257,31 @@ export class StorageService {
         "Storage is not configured. Set S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY, and S3_SECRET_KEY to enable uploads/downloads."
       );
     }
+    const defaultCredIssue = this.validateCredentialPair(this.defaultConfig.accessKeyId, this.defaultConfig.secretAccessKey);
+    if (defaultCredIssue) {
+      throw new BadRequestException(
+        `Storage credentials are invalid: ${defaultCredIssue}. Update S3_ACCESS_KEY and S3_SECRET_KEY in runtime environment.`
+      );
+    }
     return {
       client: this.defaultClient,
       bucket: this.defaultConfig.bucket,
       endpoint: this.defaultConfig.endpoint,
       region: this.defaultConfig.region,
     };
+  }
+
+  private validateCredentialPair(accessKeyId?: string | null, secretAccessKey?: string | null) {
+    const access = (accessKeyId ?? "").trim();
+    const secret = (secretAccessKey ?? "").trim();
+    if (!access || !secret) {
+      return "access key or secret key is empty";
+    }
+    const isPlaceholder = (value: string) => value.toUpperCase() === "REPLACE_ME";
+    if (isPlaceholder(access) || isPlaceholder(secret)) {
+      return "placeholder credential value REPLACE_ME is not allowed";
+    }
+    return null;
   }
 
   private resolveTargetFromKey(

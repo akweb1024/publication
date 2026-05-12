@@ -195,7 +195,8 @@ export class SubmissionsService {
   async createSubmissionUpload(
     submissionId: string,
     userId: string,
-    input: { originalName: string; mimeType: string; sizeBytes: number; sha256: string; role: "MANUSCRIPT" | "SUPPLEMENT" | "FIGURE" | "RESPONSE_LETTER" | "OTHER" }
+    input: { originalName: string; mimeType: string; sizeBytes: number; sha256: string; role: "MANUSCRIPT" | "SUPPLEMENT" | "FIGURE" | "RESPONSE_LETTER" | "OTHER" },
+    includeStorageDebug = false
   ) {
     const submission = await this.prisma.submission.findUnique({
       where: { id: submissionId },
@@ -229,7 +230,37 @@ export class SubmissionsService {
     });
 
     const uploadUrl = await this.storage.presignPutObject(storageKey, input.mimeType);
-    return { fileId: storedFile.id, storageKey: storedFile.storageKey, uploadUrl };
+    const response: {
+      fileId: string;
+      storageKey: string;
+      uploadUrl: string;
+      routingDebug?: {
+        target: string;
+        provider: string;
+        reason: string;
+        endpoint: string;
+        bucket: string;
+        journalSlug: string | null;
+      };
+    } = {
+      fileId: storedFile.id,
+      storageKey: storedFile.storageKey,
+      uploadUrl,
+    };
+
+    if (includeStorageDebug) {
+      const routing = await this.storage.simulateRouting(storageKey);
+      response.routingDebug = {
+        target: routing.target,
+        provider: routing.provider,
+        reason: routing.reason,
+        endpoint: routing.endpoint,
+        bucket: routing.bucket,
+        journalSlug: routing.journalSlug,
+      };
+    }
+
+    return response;
   }
 
   async addContributor(
