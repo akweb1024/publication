@@ -2,10 +2,19 @@ import { ConflictException, Inject, Injectable, UnauthorizedException } from "@n
 import * as prismaClient from "@prisma/client";
 import type { JournalRole as JournalRoleType } from "@prisma/client";
 import argon2 from "argon2";
+import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { buildOtpAuthUri, generateTotpSecret, verifyTotpCode } from "./totp.util.js";
 
 const { JournalRole } = prismaClient as { JournalRole: typeof import("@prisma/client").JournalRole };
+const DEFAULT_GOOGLE_ADMIN_EMAIL = "amit.rai@celnet.in";
+
+type GoogleTokenInfo = {
+  aud?: string;
+  email?: string;
+  email_verified?: string | boolean;
+  name?: string;
+};
 
 const MFA_REQUIRED_ROLES: JournalRoleType[] = [
   JournalRole.JOURNAL_ADMIN,
@@ -35,6 +44,19 @@ const MANAGEMENT_ROLES: JournalRoleType[] = [
 export class AuthService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
+  private isDefaultAdminEmail(email: string) {
+    return email.trim().toLowerCase() === DEFAULT_GOOGLE_ADMIN_EMAIL;
+  }
+
+  private async ensureDefaultAdminAccess(userId: string) {
+    const journals = await this.prisma.journal.findMany({ select: { id: true } });
+    if (journals.length === 0) return;
+    await this.prisma.journalRoleAssignment.createMany({
+      data: journals.map((journal) => ({ journalId: journal.id, userId, role: JournalRole.JOURNAL_ADMIN })),
+      skipDuplicates: true,
+    });
+  }
+
   async register(input: { email: string; name: string; password: string }) {
     const existing = await this.prisma.user.findUnique({ where: { email: input.email } });
     if (existing) throw new ConflictException("Email already registered");
@@ -47,6 +69,49 @@ export class AuthService {
     if (!user) throw new UnauthorizedException("Invalid credentials");
     const ok = await argon2.verify(user.passwordHash, input.password);
     if (!ok) throw new UnauthorizedException("Invalid credentials");
+    if (this.isDefaultAdminEmail(user.email)) {
+      await this.ensureDefaultAdminAccess(user.id);
+    }
+    const editorialRole = await this.prisma.journalRoleAssignment.findFirst({
+      where: { userId: user.id, role: { in: MFA_REQUIRED_ROLES } },
+      select: { id: true },
+    });
+    const mfaRequired = !!editorialRole || user.mfaEnabled;
+    return {
+      user,
+      mfaRequired,
+      mfaEnrollmentRequired: !!editorialRole && !user.mfaEnabled,
+    };
+  }
+
+  async loginWithGoogle(idToken: string) {
+    const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    if (!googleClientId) throw new UnauthorizedException("Google sign-in is not configured");
+
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+    if (!response.ok) throw new UnauthorizedException("Invalid Google credential");
+    const tokenInfo = (await response.json()) as GoogleTokenInfo;
+    if (!tokenInfo.aud || tokenInfo.aud !== googleClientId) throw new UnauthorizedException("Google token audience mismatch");
+    const emailVerified = tokenInfo.email_verified === true || tokenInfo.email_verified === "true";
+    const email = tokenInfo.email?.trim().toLowerCase();
+    if (!emailVerified || !email) throw new UnauthorizedException("Google email is not verified");
+
+    let user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      const passwordHash = await argon2.hash(`${randomUUID()}-${randomUUID()}`);
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          name: tokenInfo.name?.trim() || email.split("@")[0] || "Google User",
+          passwordHash,
+        },
+      });
+    }
+
+    if (this.isDefaultAdminEmail(user.email)) {
+      await this.ensureDefaultAdminAccess(user.id);
+    }
+
     const editorialRole = await this.prisma.journalRoleAssignment.findFirst({
       where: { userId: user.id, role: { in: MFA_REQUIRED_ROLES } },
       select: { id: true },
@@ -114,21 +179,25 @@ export class AuthService {
       select: { id: true, email: true, name: true, mfaEnabled: true },
     });
     if (!user) return { authenticated: false };
+    const isDefaultAdmin = this.isDefaultAdminEmail(user.email);
+    if (isDefaultAdmin) {
+      await this.ensureDefaultAdminAccess(user.id);
+    }
 
     const assignments = await this.prisma.journalRoleAssignment.findMany({
       where: { userId },
       select: { role: true, journal: { select: { slug: true, title: true } } },
     });
     const roles = Array.from(new Set(assignments.map((item) => item.role)));
-    const hasEditorial = roles.some((role) => EDITORIAL_ROLES.includes(role));
-    const hasManagement = roles.some((role) => MANAGEMENT_ROLES.includes(role));
+    const hasEditorial = isDefaultAdmin || roles.some((role) => EDITORIAL_ROLES.includes(role));
+    const hasManagement = isDefaultAdmin || roles.some((role) => MANAGEMENT_ROLES.includes(role));
     const hasReviewer = roles.includes(JournalRole.REVIEWER);
     const hasSubscriber = roles.includes(JournalRole.SUBSCRIBER);
 
     return {
       authenticated: true,
       user,
-      roles,
+      roles: isDefaultAdmin && !roles.includes(JournalRole.JOURNAL_ADMIN) ? [JournalRole.JOURNAL_ADMIN, ...roles] : roles,
       capabilities: {
         canSubmit: true,
         canReview: hasReviewer,

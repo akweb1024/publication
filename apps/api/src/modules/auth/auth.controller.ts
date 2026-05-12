@@ -16,6 +16,9 @@ const LoginDto = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
+const GoogleLoginDto = z.object({
+  credential: z.string().min(20),
+});
 const VerifyMfaDto = z.object({
   mfaToken: z.string().min(10),
   code: z.string().min(6).max(6),
@@ -60,6 +63,22 @@ export class AuthController {
   async login(@Body() body: unknown, @Req() req: FastifyRequest) {
     const dto = LoginDto.parse(body);
     const result = await this.auth.login(dto);
+    if (result.mfaRequired) {
+      const mfaToken = issueMfaToken(result.user.id, result.mfaEnrollmentRequired);
+      return {
+        mfaRequired: true,
+        mfaEnrollmentRequired: result.mfaEnrollmentRequired,
+        mfaToken,
+      };
+    }
+    (req as any).session.set("userId", result.user.id);
+    return { id: result.user.id, email: result.user.email, name: result.user.name };
+  }
+
+  @Post("google")
+  async googleLogin(@Body() body: unknown, @Req() req: FastifyRequest) {
+    const dto = GoogleLoginDto.parse(body);
+    const result = await this.auth.loginWithGoogle(dto.credential);
     if (result.mfaRequired) {
       const mfaToken = issueMfaToken(result.user.id, result.mfaEnrollmentRequired);
       return {

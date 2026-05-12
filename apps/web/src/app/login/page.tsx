@@ -1,9 +1,50 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { apiJson } from "../../lib/clientApi";
+import { errorMessage } from "../../lib/errorMessage";
 import ErrorAlert from "../../components/ErrorAlert";
+
+type LoginApiResult = {
+  mfaRequired?: boolean;
+  mfaEnrollmentRequired?: boolean;
+  mfaToken?: string;
+};
+
+type MfaEnrollInitResponse = {
+  mfaToken: string;
+  secret: string;
+  otpauthUri: string;
+};
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (options: {
+            client_id: string;
+            callback: (response: { credential: string }) => void;
+            auto_select?: boolean;
+            cancel_on_tap_outside?: boolean;
+          }) => void;
+          renderButton: (
+            element: HTMLElement,
+            options: {
+              theme?: "outline" | "filled_blue" | "filled_black";
+              size?: "large" | "medium" | "small";
+              text?: "signin_with" | "signup_with" | "continue_with" | "signin";
+              shape?: "rectangular" | "pill" | "circle" | "square";
+              width?: string | number;
+            }
+          ) => void;
+        };
+      };
+    };
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,25 +58,113 @@ export default function LoginPage() {
   const [mfaCode, setMfaCode] = useState("");
   const [mfaSecret, setMfaSecret] = useState<string | null>(null);
   const [mfaUri, setMfaUri] = useState<string | null>(null);
+  const [googleReady, setGoogleReady] = useState(false);
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
   const isLocalOrDev =
     process.env.NODE_ENV !== "production" ||
     (process.env.NEXT_PUBLIC_API_BASE ?? "").includes("localhost") ||
     (process.env.NEXT_PUBLIC_API_BASE ?? "").includes("127.0.0.1");
+
+  useEffect(() => {
+    if (!googleClientId || mfaRequired) return;
+    let cancelled = false;
+    const scriptId = "google-identity-services";
+    const initialize = () => {
+      if (cancelled || !window.google?.accounts?.id) return;
+      const target = document.getElementById("google-signin-button");
+      if (!target) return;
+      target.innerHTML = "";
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async ({ credential }) => {
+          if (!credential) return;
+          setLoading(true);
+          setError(null);
+          try {
+            const result = await apiJson<LoginApiResult>("/auth/google", {
+              method: "POST",
+              body: JSON.stringify({ credential }),
+            });
+            if (result?.mfaRequired) {
+              const token = result.mfaToken;
+              if (!token) {
+                setError("MFA is required but the server did not return a verification token.");
+                return;
+              }
+              setMfaRequired(true);
+              setMfaEnrollmentRequired(!!result.mfaEnrollmentRequired);
+              setMfaToken(token);
+              if (result.mfaEnrollmentRequired) {
+                const enroll = await apiJson<MfaEnrollInitResponse>("/auth/mfa/enroll-init", {
+                  method: "POST",
+                  body: JSON.stringify({ mfaToken: token }),
+                });
+                setMfaToken(enroll.mfaToken);
+                setMfaSecret(enroll.secret);
+                setMfaUri(enroll.otpauthUri);
+              }
+              return;
+            }
+            router.push("/dashboard");
+          } catch (err: unknown) {
+            setError(errorMessage(err) || "Google login failed");
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+      window.google.accounts.id.renderButton(target, {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        shape: "pill",
+        width: 280,
+      });
+      setGoogleReady(true);
+    };
+
+    const existing = document.getElementById(scriptId) as HTMLScriptElement | null;
+    if (existing) {
+      if (window.google) initialize();
+      else existing.addEventListener("load", initialize, { once: true });
+      return () => {
+        cancelled = true;
+        existing.removeEventListener("load", initialize);
+      };
+    }
+
+    const script = document.createElement("script");
+    script.id = scriptId;
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = initialize;
+    document.head.appendChild(script);
+    return () => {
+      cancelled = true;
+      script.onload = null;
+    };
+  }, [googleClientId, mfaRequired, router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const result = await apiJson<any>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+      const result = await apiJson<LoginApiResult>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
       if (result?.mfaRequired) {
+        const token = result.mfaToken;
+        if (!token) {
+          setError("MFA is required but the server did not return a verification token.");
+          return;
+        }
         setMfaRequired(true);
         setMfaEnrollmentRequired(!!result.mfaEnrollmentRequired);
-        setMfaToken(result.mfaToken);
+        setMfaToken(token);
         if (result.mfaEnrollmentRequired) {
-          const enroll = await apiJson<any>("/auth/mfa/enroll-init", {
+          const enroll = await apiJson<MfaEnrollInitResponse>("/auth/mfa/enroll-init", {
             method: "POST",
-            body: JSON.stringify({ mfaToken: result.mfaToken }),
+            body: JSON.stringify({ mfaToken: token }),
           });
           setMfaToken(enroll.mfaToken);
           setMfaSecret(enroll.secret);
@@ -44,8 +173,8 @@ export default function LoginPage() {
         return;
       }
       router.push("/dashboard");
-    } catch (err: any) {
-      const raw = err?.message ?? "Login failed";
+    } catch (err: unknown) {
+      const raw = errorMessage(err) || "Login failed";
       if (String(raw).toLowerCase().includes("failed to fetch")) {
         setError("Unable to reach API. Check NEXT_PUBLIC_API_BASE and ensure API server is running.");
       } else {
@@ -73,8 +202,8 @@ export default function LoginPage() {
         });
       }
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err?.message ?? "MFA verification failed");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "MFA verification failed");
     } finally {
       setLoading(false);
     }
@@ -136,6 +265,15 @@ export default function LoginPage() {
           ) : null}
           {!mfaRequired ? (
             <>
+              {googleClientId ? (
+                <div style={{ display: "grid", gap: 10, marginBottom: 8 }}>
+                  <div id="google-signin-button" />
+                  {!googleReady ? <small className="muted">Loading Google sign-in...</small> : null}
+                  <div className="muted" style={{ fontSize: "0.85rem" }}>
+                    Or sign in with email and password
+                  </div>
+                </div>
+              ) : null}
               <div className="field">
                 <label htmlFor="email">Email</label>
                 <input
@@ -167,9 +305,9 @@ export default function LoginPage() {
           {error ? <ErrorAlert message={error} /> : null}
           <p className="muted">
             New here?{" "}
-            <a href="/register" style={{ color: "var(--accent)", fontWeight: 700 }}>
+            <Link href="/register" style={{ color: "var(--accent)", fontWeight: 700 }}>
               Create account
-            </a>
+            </Link>
           </p>
         </form>
       </section>
