@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import ErrorAlert from "../../../components/ErrorAlert";
 import { apiJson } from "../../../lib/clientApi";
+import { errorMessage } from "../../../lib/errorMessage";
 
 export default function SecuritySettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -29,9 +30,9 @@ export default function SecuritySettingsPage() {
         await apiJson("/auth/session", { method: "GET" });
         if (!mounted) return;
         await loadStatus();
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to load security settings");
+        setError(errorMessage(err) || "Failed to load security settings");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -51,8 +52,8 @@ export default function SecuritySettingsPage() {
       setSetupSecret(setup.secret);
       setSetupUri(setup.otpauthUri);
       setMessage("MFA secret generated. Add it to your authenticator app.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to start MFA setup");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to start MFA setup");
     } finally {
       setBusy(null);
     }
@@ -73,8 +74,8 @@ export default function SecuritySettingsPage() {
       setSetupUri(null);
       await loadStatus();
       setMessage("MFA enabled successfully.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to enable MFA");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to enable MFA");
     } finally {
       setBusy(null);
     }
@@ -93,8 +94,8 @@ export default function SecuritySettingsPage() {
       setDisableCode("");
       await loadStatus();
       setMessage("MFA disabled.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to disable MFA");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to disable MFA");
     } finally {
       setBusy(null);
     }

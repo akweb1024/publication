@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { apiJson } from "../../../lib/clientApi";
+import { errorMessage } from "../../../lib/errorMessage";
 import ErrorAlert from "../../../components/ErrorAlert";
 
 type Journal = { id: string; slug: string; title: string };
@@ -37,13 +39,13 @@ const STATUS_OPTIONS = [
   "REJECTED",
   "WITHDRAWN",
 ] as const;
-const SORT_OPTIONS = ["DUE_SOONEST", "RESPOND_SOONEST", "NEWEST", "OLDEST"] as const;
+type SortOption = "DUE_SOONEST" | "RESPOND_SOONEST" | "NEWEST" | "OLDEST";
 
 export default function EditorialQueuePage() {
   const [journals, setJournals] = useState<Journal[]>([]);
   const [selectedJournal, setSelectedJournal] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<(typeof STATUS_OPTIONS)[number]>("");
-  const [selectedSort, setSelectedSort] = useState<(typeof SORT_OPTIONS)[number]>("DUE_SOONEST");
+  const [selectedSort, setSelectedSort] = useState<SortOption>("DUE_SOONEST");
   const [items, setItems] = useState<QueueItem[]>([]);
   const [editors, setEditors] = useState<EditorCandidate[]>([]);
   const [reviewers, setReviewers] = useState<ReviewerCandidate[]>([]);
@@ -120,9 +122,9 @@ export default function EditorialQueuePage() {
           await loadQueue(first, "");
           await loadCandidates(first);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to load editorial queue");
+        setError(errorMessage(err) || "Failed to load editorial queue");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -135,11 +137,11 @@ export default function EditorialQueuePage() {
 
   useEffect(() => {
     if (!selectedJournal) return;
-    loadQueue(selectedJournal, selectedStatus).catch((err: any) =>
-      setError(err?.message ?? "Failed to load queue")
+    loadQueue(selectedJournal, selectedStatus).catch((err: unknown) =>
+      setError(errorMessage(err) || "Failed to load queue")
     );
-    loadCandidates(selectedJournal).catch((err: any) =>
-      setError(err?.message ?? "Failed to load assignment candidates")
+    loadCandidates(selectedJournal).catch((err: unknown) =>
+      setError(errorMessage(err) || "Failed to load assignment candidates")
     );
   }, [selectedJournal, selectedStatus]);
 
@@ -154,8 +156,8 @@ export default function EditorialQueuePage() {
       });
       await loadQueue(selectedJournal, selectedStatus);
       setMessage("Review round started.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to start review round");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to start review round");
     } finally {
       setBusyItemId(null);
     }
@@ -177,8 +179,8 @@ export default function EditorialQueuePage() {
       });
       await loadQueue(selectedJournal, selectedStatus);
       setMessage("Handling editor assigned.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to assign editor");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to assign editor");
     } finally {
       setBusyItemId(null);
     }
@@ -220,8 +222,8 @@ export default function EditorialQueuePage() {
       setRespondByBySubmission((prev) => ({ ...prev, [submissionId]: "" }));
       setDueAtBySubmission((prev) => ({ ...prev, [submissionId]: "" }));
       setMessage("Reviewer invited.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to invite reviewer");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to invite reviewer");
     } finally {
       setBusyItemId(null);
     }
@@ -248,8 +250,8 @@ export default function EditorialQueuePage() {
       });
       await loadQueue(selectedJournal, selectedStatus);
       setMessage("Decision recorded and author notification queued.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to record decision");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to record decision");
     } finally {
       setBusyItemId(null);
     }
@@ -272,9 +274,9 @@ export default function EditorialQueuePage() {
         <p>Track incoming manuscripts, filter by status, and move papers into review quickly.</p>
         <div className="meta-row">
           <span className="chip">{selectedJournalTitle || "No journal selected"}</span>
-          <a href="/dashboard" className="button button-ghost compact">
+          <Link href="/dashboard" className="button button-ghost compact">
             Back to workspace
-          </a>
+          </Link>
         </div>
       </section>
 
@@ -317,7 +319,7 @@ export default function EditorialQueuePage() {
               id="sort-filter"
               className="select"
               value={selectedSort}
-              onChange={(event) => setSelectedSort(event.target.value as (typeof SORT_OPTIONS)[number])}
+              onChange={(event) => setSelectedSort(event.target.value as SortOption)}
             >
               <option value="DUE_SOONEST">Nearest due date</option>
               <option value="RESPOND_SOONEST">Nearest respond-by</option>

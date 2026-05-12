@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { apiJson } from "../../../lib/clientApi";
+import { errorMessage } from "../../../lib/errorMessage";
 import ErrorAlert from "../../../components/ErrorAlert";
 
 type Journal = { id: string; slug: string; title: string };
@@ -139,9 +141,9 @@ export default function StorageSettingsPage() {
         const first = list.items[0]?.slug ?? "";
         setJournalSlug(first);
         if (first) await loadJournalConfig(first);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to load storage settings");
+        setError(errorMessage(err) || "Failed to load storage settings");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -158,8 +160,8 @@ export default function StorageSettingsPage() {
     setError(null);
     try {
       await loadJournalConfig(nextSlug);
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to load journal storage config");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to load journal storage config");
     }
   }
 
@@ -188,8 +190,8 @@ export default function StorageSettingsPage() {
       });
       setMessage("Storage configuration saved.");
       await loadJournalConfig(journalSlug);
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to save storage configuration");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to save storage configuration");
     } finally {
       setSaving(false);
     }
@@ -220,8 +222,8 @@ export default function StorageSettingsPage() {
         }),
       });
       setMessage("External storage connection test succeeded.");
-    } catch (err: any) {
-      setError(err?.message ?? "External storage connection test failed");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "External storage connection test failed");
     } finally {
       setTesting(false);
     }
@@ -239,8 +241,8 @@ export default function StorageSettingsPage() {
       });
       setSimulation(result);
       setMessage("Routing simulation completed.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to simulate storage routing");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to simulate storage routing");
     } finally {
       setSimulating(false);
     }
@@ -262,8 +264,8 @@ export default function StorageSettingsPage() {
       });
       setMessage("External database sync settings saved.");
       await loadJournalConfig(journalSlug);
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to save external database sync settings");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to save external database sync settings");
     } finally {
       setSavingDataSync(false);
     }
@@ -281,8 +283,8 @@ export default function StorageSettingsPage() {
       });
       setMessage("External database connection test succeeded.");
       await loadJournalConfig(journalSlug);
-    } catch (err: any) {
-      setError(err?.message ?? "External database connection test failed");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "External database connection test failed");
     } finally {
       setTestingDataSync(false);
     }
@@ -303,8 +305,8 @@ export default function StorageSettingsPage() {
       );
       setMessage(`Data sync completed. Synced ${result.recordsSynced} records.`);
       await loadJournalConfig(journalSlug);
-    } catch (err: any) {
-      setError(err?.message ?? "Data sync failed");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Data sync failed");
     } finally {
       setRunningDataSync(false);
     }
@@ -318,7 +320,7 @@ export default function StorageSettingsPage() {
         <h1>Storage Settings</h1>
         <p>Configure hybrid storage policy and external provider for journal files.</p>
         <div className="meta-row">
-          <a href="/dashboard/journals" className="button button-ghost compact">Back to Journal Settings</a>
+          <Link href="/dashboard/journals" className="button button-ghost compact">Back to Journal Settings</Link>
         </div>
       </section>
 

@@ -1,6 +1,50 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import JournalNav from "../../../../../components/JournalNav";
+import Breadcrumbs from "../../../../../components/Breadcrumbs";
 import { getJournal, listIssueArticles, listIssues, listVolumes } from "../../../../../lib/api";
+import { buildCanonical } from "../../../../../lib/seo";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ journalSlug: string; issueId: string }>;
+}): Promise<Metadata> {
+  const { journalSlug, issueId } = await params;
+  const [journal, issues, volumes] = await Promise.all([
+    getJournal(journalSlug),
+    listIssues(journalSlug),
+    listVolumes(journalSlug),
+  ]);
+  const issue = issues.find((item) => item.id === issueId);
+  if (!issue) {
+    return {
+      title: `Issue Not Found | ${journal.title}`,
+      description: `Requested issue could not be found in ${journal.title}.`,
+      robots: { index: false, follow: false },
+    };
+  }
+  const volume = volumes.find((item) => item.id === issue.volumeId);
+  const canonicalPath = `/${journalSlug}/archive/issues/${issue.id}`;
+  const description = `${journal.title} Issue ${issue.number}${volume ? ` in Volume ${volume.number} (${volume.year})` : ""}.`;
+  return {
+    title: `${journal.title} Issue ${issue.number}${issue.title ? ` | ${issue.title}` : ""}`,
+    description,
+    alternates: { canonical: buildCanonical(canonicalPath) },
+    openGraph: {
+      type: "website",
+      url: buildCanonical(canonicalPath),
+      title: `${journal.title} Issue ${issue.number}`,
+      description,
+      siteName: journal.title,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${journal.title} Issue ${issue.number}`,
+      description,
+    },
+  };
+}
 
 export default async function IssueDetailPage({
   params,
@@ -32,6 +76,15 @@ export default async function IssueDetailPage({
   return (
     <main className="main-stack">
       <JournalNav journalSlug={journalSlug} journalTitle={journal.title} />
+      <Breadcrumbs
+        items={[
+          { label: "Journals", href: "/journals" },
+          { label: journal.title, href: `/${journalSlug}` },
+          { label: "Archive", href: `/${journalSlug}/archive` },
+          ...(volume ? [{ label: `Volume ${volume.number}`, href: `/${journalSlug}/archive/volumes/${volume.id}` }] : []),
+          { label: `Issue ${issue.number}` },
+        ]}
+      />
       <section className="hero">
         <p className="eyebrow" style={{ color: "rgba(234, 244, 255, 0.84)" }}>
           Issue

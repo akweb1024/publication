@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import ErrorAlert from "../../../components/ErrorAlert";
 import { apiJson } from "../../../lib/clientApi";
+import { errorMessage } from "../../../lib/errorMessage";
 
 type Journal = { id: string; slug: string; title: string };
 type AuditItem = {
@@ -42,9 +43,9 @@ export default function AuditDashboardPage() {
         const first = journalsRes.items[0]?.slug ?? "";
         setJournalSlug(first);
         if (first) await loadAudit(first);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to load audit dashboard");
+        setError(errorMessage(err) || "Failed to load audit dashboard");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -57,7 +58,7 @@ export default function AuditDashboardPage() {
 
   useEffect(() => {
     if (!journalSlug) return;
-    loadAudit(journalSlug).catch((err: any) => setError(err?.message ?? "Failed to load audit logs"));
+    loadAudit(journalSlug).catch((err: unknown) => setError(errorMessage(err) || "Failed to load audit logs"));
   }, [journalSlug]);
 
   if (loading) return <p>Loading audit dashboard...</p>;

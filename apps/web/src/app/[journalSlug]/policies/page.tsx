@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cache } from "react";
 import JournalNav from "../../../components/JournalNav";
+import Breadcrumbs from "../../../components/Breadcrumbs";
+import FaqSection from "../../../components/FaqSection";
 import { getJournal, getPolicyLatest, listPolicies } from "../../../lib/api";
 
 const SITE_BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -72,6 +74,13 @@ export default async function PoliciesHubPage({ params }: { params: Promise<{ jo
     <main className="main-stack">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
       <JournalNav journalSlug={journalSlug} journalTitle={journal.title} />
+      <Breadcrumbs
+        items={[
+          { label: "Journals", href: "/journals" },
+          { label: journal.title, href: `/${journalSlug}` },
+          { label: "Policies" },
+        ]}
+      />
       <section className="hero">
         <p className="eyebrow" style={{ color: "rgba(234, 244, 255, 0.84)" }}>
           Governance
@@ -103,6 +112,31 @@ export default async function PoliciesHubPage({ params }: { params: Promise<{ jo
           ))}
         </div>
       </section>
+      <FaqSection
+        title="Journal Policy FAQs"
+        items={[
+          {
+            question: "Which policy version is currently active?",
+            answer:
+              "Each policy entry displays a version number and effective date so editors and authors can follow current rules.",
+          },
+          {
+            question: "Where can I view detailed policy text?",
+            answer:
+              "Select any policy item in the hub to open its full detail page with complete document content.",
+          },
+          {
+            question: "Are policy keys stable for integrations?",
+            answer:
+              "Yes. Policy keys are suitable for consistent linking and machine-readable references across tools.",
+          },
+          {
+            question: "Can policy pages be used by AI assistants?",
+            answer:
+              "Yes. Structured policy pages and metadata support AI summarization, retrieval, and workflow guidance.",
+          },
+        ]}
+      />
     </main>
   );
 }

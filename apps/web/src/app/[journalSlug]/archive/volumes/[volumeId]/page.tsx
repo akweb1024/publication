@@ -1,6 +1,46 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import JournalNav from "../../../../../components/JournalNav";
+import Breadcrumbs from "../../../../../components/Breadcrumbs";
 import { getJournal, listIssueArticles, listIssues, listVolumes } from "../../../../../lib/api";
+import { buildCanonical } from "../../../../../lib/seo";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ journalSlug: string; volumeId: string }>;
+}): Promise<Metadata> {
+  const { journalSlug, volumeId } = await params;
+  const [journal, volumes] = await Promise.all([getJournal(journalSlug), listVolumes(journalSlug)]);
+  const volume = volumes.find((item) => item.id === volumeId);
+  if (!volume) {
+    return {
+      title: `Volume Not Found | ${journal.title}`,
+      description: `Requested volume could not be found in ${journal.title}.`,
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const canonicalPath = `/${journalSlug}/archive/volumes/${volume.id}`;
+  const description = `Browse Volume ${volume.number} (${volume.year}) in ${journal.title}, including issue and article access.`;
+  return {
+    title: `${journal.title} Volume ${volume.number} (${volume.year})`,
+    description,
+    alternates: { canonical: buildCanonical(canonicalPath) },
+    openGraph: {
+      type: "website",
+      url: buildCanonical(canonicalPath),
+      title: `${journal.title} Volume ${volume.number}`,
+      description,
+      siteName: journal.title,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${journal.title} Volume ${volume.number}`,
+      description,
+    },
+  };
+}
 
 export default async function VolumeDetailPage({
   params,
@@ -37,6 +77,14 @@ export default async function VolumeDetailPage({
   return (
     <main className="main-stack">
       <JournalNav journalSlug={journalSlug} journalTitle={journal.title} />
+      <Breadcrumbs
+        items={[
+          { label: "Journals", href: "/journals" },
+          { label: journal.title, href: `/${journalSlug}` },
+          { label: "Archive", href: `/${journalSlug}/archive` },
+          { label: `Volume ${volume.number}` },
+        ]}
+      />
       <section className="hero">
         <p className="eyebrow" style={{ color: "rgba(234, 244, 255, 0.84)" }}>
           Volume

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { apiJson } from "../lib/clientApi";
 import { motion } from "framer-motion";
@@ -58,29 +59,30 @@ export default function RoleAwareNav() {
   }, []);
 
   if (!ctx.authenticated) {
+    const journalsActive = pathname === "/" || pathname === "/journals";
     return (
       <>
-        <a href="/" className={`nav-link ${pathname === "/" ? "nav-link-active" : ""}`}>
-          {pathname === "/" && (
+        <Link href="/journals" className={`nav-link ${journalsActive ? "nav-link-active" : ""}`}>
+          {journalsActive && (
             <motion.div layoutId="active-pill" className="nav-pill" transition={{ type: "spring", stiffness: 300, damping: 30 }} />
           )}
           <span style={{ position: "relative", zIndex: 2 }}>Journals</span>
-        </a>
-        <a href="/about" className={`nav-link ${pathname === "/about" ? "nav-link-active" : ""}`}>
+        </Link>
+        <Link href="/about" className={`nav-link ${pathname === "/about" ? "nav-link-active" : ""}`}>
           {pathname === "/about" && (
             <motion.div layoutId="active-pill" className="nav-pill" transition={{ type: "spring", stiffness: 300, damping: 30 }} />
           )}
           <span style={{ position: "relative", zIndex: 2 }}>About</span>
-        </a>
-        <a href="/policies" className={`nav-link ${pathname === "/policies" ? "nav-link-active" : ""}`}>
+        </Link>
+        <Link href="/policies" className={`nav-link ${pathname === "/policies" ? "nav-link-active" : ""}`}>
           {pathname === "/policies" && (
             <motion.div layoutId="active-pill" className="nav-pill" transition={{ type: "spring", stiffness: 300, damping: 30 }} />
           )}
           <span style={{ position: "relative", zIndex: 2 }}>Policies</span>
-        </a>
-        <a href="/login" className="button button-ghost compact">
+        </Link>
+        <Link href="/login" className="button button-ghost compact">
           Login
-        </a>
+        </Link>
       </>
     );
   }
@@ -92,18 +94,19 @@ export default function RoleAwareNav() {
   const primaryRoleLabel = primaryRole ? ROLE_LABELS[primaryRole] ?? primaryRole : null;
   
   function isActive(href: string) {
+    if (href === "/journals") return pathname === "/" || pathname === "/journals";
     return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
   }
 
   function NavItem({ href, label }: { href: string; label: string }) {
     const active = isActive(href);
     return (
-      <a href={href} className={`nav-link ${active ? "nav-link-active" : ""}`}>
+      <Link href={href} className={`nav-link ${active ? "nav-link-active" : ""}`}>
         {active && (
           <motion.div layoutId="active-pill" className="nav-pill" transition={{ type: "spring", stiffness: 300, damping: 30 }} />
         )}
         <span style={{ position: "relative", zIndex: 2 }}>{label}</span>
-      </a>
+      </Link>
     );
   }
 
@@ -114,7 +117,7 @@ export default function RoleAwareNav() {
       </span>
       {primaryRoleLabel ? <span className="chip role-chip">{primaryRoleLabel}</span> : null}
       
-      <NavItem href="/" label="Journals" />
+      <NavItem href="/journals" label="Journals" />
       <NavItem href="/about" label="About" />
       <NavItem href="/policies" label="Policies" />
       
@@ -133,9 +136,9 @@ export default function RoleAwareNav() {
       ) : null}
       {capabilities?.canSecurity ? <NavItem href="/dashboard/security" label="Security" /> : null}
       
-      <a href="/login" className="button button-ghost compact">
+      <Link href="/login" className="button button-ghost compact">
         Switch Account
-      </a>
+      </Link>
     </>
   );
 }

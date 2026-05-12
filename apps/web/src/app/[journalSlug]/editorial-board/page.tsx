@@ -6,8 +6,9 @@ type BoardMember = { name: string; role: string; affiliation?: string; country?:
 export default async function EditorialBoardPage({ params }: { params: Promise<{ journalSlug: string }> }) {
   const { journalSlug } = await params;
   const journal = await getJournal(journalSlug);
-  const branding = (journal.brandingJson ?? {}) as Record<string, any>;
-  const board = (branding.editorialBoard ?? []) as BoardMember[];
+  const branding = (journal.brandingJson ?? {}) as Record<string, unknown>;
+  const boardRaw = branding.editorialBoard;
+  const board = Array.isArray(boardRaw) ? (boardRaw as BoardMember[]) : [];
   const sourceUrl = typeof branding.sourceUrl === "string" ? branding.sourceUrl : null;
 
   return (

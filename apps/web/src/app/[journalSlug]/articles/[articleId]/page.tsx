@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { cache } from "react";
 import JournalNav from "../../../../components/JournalNav";
+import Breadcrumbs from "../../../../components/Breadcrumbs";
 import { getJournal } from "../../../../lib/api";
 
 const API_BASE = process.env.API_BASE ?? process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:4000/api/v1";
@@ -109,12 +111,22 @@ export default async function ArticleLandingPage({
   const schema = {
     "@context": "https://schema.org",
     "@type": "ScholarlyArticle",
+    url: canonicalUrl,
     headline: article.title,
     description: article.abstractText ?? undefined,
+    abstract: article.abstractText ?? undefined,
+    inLanguage: "en",
     datePublished: article.publishedAt ?? undefined,
+    dateModified: article.publishedAt ?? undefined,
+    author:
+      article.contributors?.map((contributor) => ({
+        "@type": "Person",
+        name: contributor.displayName?.trim() || "Unknown Author",
+      })) ?? undefined,
     identifier: article.doi ? [{ "@type": "PropertyValue", propertyID: "DOI", value: article.doi }] : undefined,
     keywords: article.keywordsText?.join(", ") || undefined,
     isAccessibleForFree: article.access === "OPEN",
+    license: article.access === "OPEN" ? "https://creativecommons.org/licenses/by/4.0/" : undefined,
     mainEntityOfPage: canonicalUrl,
     isPartOf: article.issue
       ? {
@@ -144,7 +156,7 @@ export default async function ArticleLandingPage({
         },
     publisher: {
       "@type": "Organization",
-      name: "Publication Platform",
+      name: "STM Journals",
     },
   };
 
@@ -152,6 +164,15 @@ export default async function ArticleLandingPage({
     <main className="main-stack">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
       <JournalNav journalSlug={journalSlug} journalTitle={journal.title} />
+      <Breadcrumbs
+        items={[
+          { label: "Journals", href: "/journals" },
+          { label: journal.title, href: `/${journalSlug}` },
+          { label: "Archive", href: `/${journalSlug}/archive` },
+          ...(article.issue ? [{ label: `Issue ${article.issue.number}`, href: `/${journalSlug}/archive/issues/${article.issue.id}` }] : []),
+          { label: "Article" },
+        ]}
+      />
       <section className="hero">
         <p className="eyebrow" style={{ color: "rgba(234, 244, 255, 0.84)" }}>
           Article
@@ -202,14 +223,23 @@ export default async function ArticleLandingPage({
             {article.access === "RESTRICTED" ? (
               <p className="muted">
                 This PDF is restricted and requires an authenticated account.{" "}
-                <a href="/login" style={{ color: "var(--accent)", fontWeight: 700 }}>
+                <Link href="/login" style={{ color: "var(--accent)", fontWeight: 700 }}>
                   Sign in
-                </a>{" "}
+                </Link>{" "}
                 if prompted.
               </p>
             ) : null}
           </div>
         ) : null}
+      </section>
+
+      <section className="card">
+        <h2 style={{ marginBottom: 10 }}>Related Pages</h2>
+        <div className="meta-row">
+          <Link href={`/${journalSlug}`} className="button button-ghost compact">Journal overview</Link>
+          <Link href={`/${journalSlug}/policies`} className="button button-ghost compact">Journal policies</Link>
+          <Link href={`/${journalSlug}/editorial-board`} className="button button-ghost compact">Editorial board</Link>
+        </div>
       </section>
     </main>
   );

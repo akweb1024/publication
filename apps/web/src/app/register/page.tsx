@@ -1,8 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { apiJson } from "../../lib/clientApi";
+import { errorMessage } from "../../lib/errorMessage";
 import ErrorAlert from "../../components/ErrorAlert";
 
 export default function RegisterPage() {
@@ -20,8 +22,8 @@ export default function RegisterPage() {
     try {
       await apiJson("/auth/register", { method: "POST", body: JSON.stringify({ name, email, password }) });
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err?.message ?? "Registration failed");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Registration failed");
     } finally {
       setLoading(false);
     }
@@ -79,9 +81,9 @@ export default function RegisterPage() {
           {error ? <ErrorAlert message={error} /> : null}
           <p className="muted">
             Already have an account?{" "}
-            <a href="/login" style={{ color: "var(--accent)", fontWeight: 700 }}>
+            <Link href="/login" style={{ color: "var(--accent)", fontWeight: 700 }}>
               Back to login
-            </a>
+            </Link>
           </p>
         </form>
       </section>

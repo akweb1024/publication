@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { createPageMetadata } from "../../lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
   title: "About | STM Journals",
-  description: "Learn more about STM Journals and our mission.",
-};
+  description: "Learn more about STM Journals, our mission, editorial principles, and publishing standards.",
+  path: "/about",
+  keywords: ["STM journals", "about", "publishing mission", "editorial standards"],
+});
 
 export default function AboutPage() {
   return (

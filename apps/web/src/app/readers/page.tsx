@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { createPageMetadata } from "../../lib/seo";
+import FaqSection from "../../components/FaqSection";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
   title: "For Readers | STM Journals",
-  description: "Information and resources for readers of STM Journals.",
-};
+  description: "Reader access information, open access policy notes, and research discovery guidance across STM Journals.",
+  path: "/readers",
+  keywords: ["readers", "open access", "journal archive", "research access"],
+});
 
 export default function ReadersPage() {
   return (
@@ -26,6 +30,33 @@ export default function ReadersPage() {
             Stay up-to-date with the latest research in your field by signing up for electronic tables of contents (eTOCs) and custom keyword alerts.
           </p>
         </div>
+      </section>
+      <section className="container" style={{ paddingBottom: "40px" }}>
+        <FaqSection
+          title="Reader FAQs"
+          items={[
+            {
+              question: "Where can I browse all journals?",
+              answer:
+                "Use the Journals Directory to find active journals and navigate to each journal archive and policy hub.",
+            },
+            {
+              question: "Are all articles open access?",
+              answer:
+                "The platform supports both open and restricted access, depending on journal and publication policy.",
+            },
+            {
+              question: "How do I access past issues?",
+              answer:
+                "Open a journal page, go to Archive, then browse by volume and issue to access article listings.",
+            },
+            {
+              question: "Can I cite article metadata directly?",
+              answer:
+                "Article pages expose citation-oriented metadata and canonical URLs for reliable referencing.",
+            },
+          ]}
+        />
       </section>
     </main>
   );

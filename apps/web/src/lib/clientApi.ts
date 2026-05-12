@@ -25,17 +25,20 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const requestId = res.headers.get("x-request-id");
   const text = await res.text();
-  let data: any = null;
+  let data: unknown = null;
   if (text) {
     try {
-      data = JSON.parse(text);
+      data = JSON.parse(text) as unknown;
     } catch {
       data = null;
     }
   }
   if (!res.ok) {
-    const msg = data?.message ?? `Request failed: ${res.status}`;
-    const baseMessage = Array.isArray(msg) ? msg.join(", ") : String(msg);
+    let msg: unknown = `Request failed: ${res.status}`;
+    if (data && typeof data === "object" && data !== null && "message" in data) {
+      msg = (data as { message: unknown }).message;
+    }
+    const baseMessage = Array.isArray(msg) ? msg.map(String).join(", ") : String(msg);
     const enrichedMessage = requestId ? `${baseMessage} (Reference ID: ${requestId})` : baseMessage;
     throw new ApiClientError(enrichedMessage, res.status, requestId);
   }

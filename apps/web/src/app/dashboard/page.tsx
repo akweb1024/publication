@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiJson } from "../../lib/clientApi";
+import { errorMessage } from "../../lib/errorMessage";
 import ErrorAlert from "../../components/ErrorAlert";
 
 type NavContext = {
@@ -26,7 +27,7 @@ export default function DashboardHomePage() {
   useEffect(() => {
     apiJson<NavContext>("/auth/nav-context", { method: "GET" })
       .then((value) => setCtx(value))
-      .catch((err: any) => setError(err?.message ?? "Failed to load dashboard context"));
+      .catch((err: unknown) => setError(errorMessage(err) || "Failed to load dashboard context"));
   }, []);
 
   const links = useMemo<WorkspaceLink[]>(() => {

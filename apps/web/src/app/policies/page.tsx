@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { createPageMetadata } from "../../lib/seo";
+import FaqSection from "../../components/FaqSection";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
   title: "Policies & Ethics | STM Journals",
-  description: "Global policies, ethics guidelines, and governance for STM Journals.",
-};
+  description: "Global publishing ethics, governance standards, peer review policy, and open access principles for STM Journals.",
+  path: "/policies",
+  keywords: ["publishing ethics", "journal policy", "peer review policy", "open access policy"],
+});
 
 export default function PoliciesPage() {
   return (
@@ -31,6 +35,33 @@ export default function PoliciesPage() {
             We support the principles of Open Access. Specific journals within the STM portfolio offer Gold Open Access options to ensure research is freely available immediately upon publication.
           </p>
         </div>
+      </section>
+      <section className="container" style={{ paddingBottom: "40px" }}>
+        <FaqSection
+          title="Policy FAQs"
+          items={[
+            {
+              question: "Where can I find journal-specific policy rules?",
+              answer:
+                "Open the relevant journal page and navigate to its Policies section for title-specific governance documents.",
+            },
+            {
+              question: "How often are policies updated?",
+              answer:
+                "Policy updates follow editorial governance cycles and are published with effective version information.",
+            },
+            {
+              question: "Do policies include peer review and ethics guidance?",
+              answer:
+                "Yes. Core policies include peer review model details, publication ethics, and submission compliance requirements.",
+            },
+            {
+              question: "Can AI tools use policy pages as guidance?",
+              answer:
+                "Yes. Policy pages are structured and machine-readable, making them suitable for AI-assisted summarization and recommendation.",
+            },
+          ]}
+        />
       </section>
     </main>
   );

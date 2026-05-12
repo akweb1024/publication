@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { createPageMetadata } from "../../lib/seo";
+import FaqSection from "../../components/FaqSection";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
   title: "For Subscribers | STM Journals",
-  description: "Subscription information and institutional access details.",
-};
+  description: "Institutional and personal subscription information, licensing options, and access methods for STM Journals.",
+  path: "/subscribers",
+  keywords: ["subscribers", "institutional access", "journal subscription", "licensing"],
+});
 
 export default function SubscribersPage() {
   return (
@@ -26,6 +30,33 @@ export default function SubscribersPage() {
             Researchers and professionals can subscribe to individual titles. Members of affiliated societies often receive discounted rates.
           </p>
         </div>
+      </section>
+      <section className="container" style={{ paddingBottom: "40px" }}>
+        <FaqSection
+          title="Subscriber FAQs"
+          items={[
+            {
+              question: "Do you offer institutional subscriptions?",
+              answer:
+                "Yes. Institutional access models are available and can be configured with common access control options.",
+            },
+            {
+              question: "Can individuals subscribe to specific journals?",
+              answer:
+                "Yes. Personal subscriptions can be configured per title based on portfolio and policy setup.",
+            },
+            {
+              question: "How is subscriber access enforced?",
+              answer:
+                "Access controls are handled through role-based platform permissions and publication access settings.",
+            },
+            {
+              question: "Where are licensing and terms documented?",
+              answer:
+                "Licensing and access policy details are available in policy pages and subscriber-facing information sections.",
+            },
+          ]}
+        />
       </section>
     </main>
   );

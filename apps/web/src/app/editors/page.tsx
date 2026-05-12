@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { createPageMetadata } from "../../lib/seo";
+import FaqSection from "../../components/FaqSection";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
   title: "For Editors | STM Journals",
-  description: "Resources, policies, and platform access for STM Journals Editors.",
-};
+  description: "Editorial responsibilities, review workflow, and publication operations guidance for STM Journals editors.",
+  path: "/editors",
+  keywords: ["editors", "editorial workflow", "review management", "publishing operations"],
+});
 
 export default function EditorsPage() {
   return (
@@ -27,9 +32,36 @@ export default function EditorsPage() {
           </p>
 
           <div style={{ marginTop: "40px", textAlign: "center" }}>
-            <a href="/login" className="button button-primary">Access Editorial Workspace</a>
+            <Link href="/login" className="button button-primary">Access Editorial Workspace</Link>
           </div>
         </div>
+      </section>
+      <section className="container" style={{ paddingBottom: "40px" }}>
+        <FaqSection
+          title="Editor FAQs"
+          items={[
+            {
+              question: "How do editors manage reviewer assignment?",
+              answer:
+                "Editors use the dashboard queues to triage submissions, assign reviewers, and monitor review progress.",
+            },
+            {
+              question: "Where are policy versions maintained?",
+              answer:
+                "Journal policy pages are version-aware and should be used as the source of truth for editorial governance.",
+            },
+            {
+              question: "Can editors view audit information?",
+              answer:
+                "Users with audit permissions can access dashboard audit pages to review decision and workflow actions.",
+            },
+            {
+              question: "How is production handoff handled?",
+              answer:
+                "Editorial decisions and metadata flow into publishing workflows via the platform dashboard modules.",
+            },
+          ]}
+        />
       </section>
     </main>
   );

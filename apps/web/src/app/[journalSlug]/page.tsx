@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cache } from "react";
 import { getJournal, listPolicies } from "../../lib/api";
 import JournalNav from "../../components/JournalNav";
+import Breadcrumbs from "../../components/Breadcrumbs";
 
 const SITE_BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const getPolicies = cache(async (journalSlug: string) => listPolicies(journalSlug));
@@ -43,6 +44,17 @@ export default async function JournalPage({ params }: { params: Promise<{ journa
     description: journal.description ?? undefined,
     url: canonicalUrl,
     issn: [journal.issnPrint, journal.issnOnline].filter(Boolean),
+    inLanguage: "en",
+    publisher: {
+      "@type": "Organization",
+      name: "STM Journals",
+      url: SITE_BASE,
+    },
+    potentialAction: {
+      "@type": "ViewAction",
+      target: `${canonicalUrl}/archive`,
+      name: "Browse journal archive",
+    },
     publishingPrinciples: `${canonicalUrl}/policies`,
     sameAs: [`${canonicalUrl}/archive`, `${canonicalUrl}/editorial-board`, `${canonicalUrl}/focus-scope`],
   };
@@ -50,6 +62,12 @@ export default async function JournalPage({ params }: { params: Promise<{ journa
     <main className="main-stack">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
       <JournalNav journalSlug={journalSlug} journalTitle={journal.title} />
+      <Breadcrumbs
+        items={[
+          { label: "Journals", href: "/journals" },
+          { label: journal.title },
+        ]}
+      />
       <section className="hero">
         <span className="eyebrow" style={{ color: "#fb923c" }}>STM Journal Profile</span>
         <h1>{journal.title}</h1>
@@ -64,9 +82,9 @@ export default async function JournalPage({ params }: { params: Promise<{ journa
       </section>
 
       <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "20px" }}>
-        <a href="/" className="button button-ghost compact">
+        <Link href="/" className="button button-ghost compact">
           &larr; Back to all journals
-        </a>
+        </Link>
       </div>
 
       <div className="card">
@@ -92,6 +110,15 @@ export default async function JournalPage({ params }: { params: Promise<{ journa
           )}
         </div>
       </div>
+
+      <section className="card">
+        <h2 style={{ marginBottom: 10 }}>Related Pages</h2>
+        <div className="meta-row">
+          <Link href={`/${journalSlug}/archive`} className="button button-ghost compact">Archive</Link>
+          <Link href={`/${journalSlug}/focus-scope`} className="button button-ghost compact">Focus & Scope</Link>
+          <Link href={`/${journalSlug}/editorial-board`} className="button button-ghost compact">Editorial Board</Link>
+        </div>
+      </section>
     </main>
   );
 }

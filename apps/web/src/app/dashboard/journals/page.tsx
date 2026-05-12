@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { apiJson } from "../../../lib/clientApi";
+import { errorMessage } from "../../../lib/errorMessage";
 import ErrorAlert from "../../../components/ErrorAlert";
 
 type Journal = {
@@ -15,7 +17,7 @@ type Journal = {
 type JournalDetails = Journal & {
   issnPrint?: string | null;
   issnOnline?: string | null;
-  brandingJson?: Record<string, any> | null;
+  brandingJson?: Record<string, unknown> | null;
   requiredPolicyKeys?: string[];
 };
 type JournalRoleAssignment = {
@@ -82,8 +84,8 @@ export default function JournalSettingsPage() {
     try {
       JSON.parse(brandingJsonText || "{}");
       return null;
-    } catch (err: any) {
-      return err?.message ?? "Invalid JSON";
+    } catch (err: unknown) {
+      return errorMessage(err) || "Invalid JSON";
     }
   }, [brandingJsonText]);
   const requiredPolicyKeysError =
@@ -131,9 +133,9 @@ export default function JournalSettingsPage() {
         const first = response.items[0]?.slug ?? "";
         setJournalSlug(first);
         if (first) await loadJournal(first);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to load journal settings");
+        setError(errorMessage(err) || "Failed to load journal settings");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -150,8 +152,8 @@ export default function JournalSettingsPage() {
     setMessage(null);
     try {
       await loadJournal(nextSlug);
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to load selected journal");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to load selected journal");
     }
   }
 
@@ -177,8 +179,8 @@ export default function JournalSettingsPage() {
       });
       setMessage("Journal settings saved.");
       await loadJournal(journalSlug);
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to save journal settings");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to save journal settings");
     } finally {
       setSaving(false);
     }
@@ -210,8 +212,8 @@ export default function JournalSettingsPage() {
       setSubscriberStartAt("");
       setSubscriberEndAt("");
       await loadJournal(journalSlug);
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to assign role");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to assign role");
     } finally {
       setSaving(false);
     }
@@ -229,8 +231,8 @@ export default function JournalSettingsPage() {
       });
       setMessage(`Removed ${role} from ${email}.`);
       await loadJournal(journalSlug);
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to remove role");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to remove role");
     } finally {
       setSaving(false);
     }
@@ -245,9 +247,9 @@ export default function JournalSettingsPage() {
         <p>Edit your journal profile, ISSN details, branding JSON, and required policy keys.</p>
         <div className="meta-row">
           <span className="chip">{selectedJournal?.title ?? "Select journal"}</span>
-          <a href="/dashboard/publishing" className="button button-ghost compact">
+          <Link href="/dashboard/publishing" className="button button-ghost compact">
             Back to Publishing
-          </a>
+          </Link>
         </div>
       </section>
 
@@ -381,7 +383,7 @@ export default function JournalSettingsPage() {
           </div>
           <div className="field">
             <label htmlFor="role-name">Role</label>
-            <select id="role-name" className="select" value={roleName} onChange={(event) => setRoleName(event.target.value as any)} disabled={saving}>
+            <select id="role-name" className="select" value={roleName} onChange={(event) => setRoleName(event.target.value as (typeof ROLE_OPTIONS)[number])} disabled={saving}>
               {ROLE_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {option}

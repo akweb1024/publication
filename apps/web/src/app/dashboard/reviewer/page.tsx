@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { apiJson } from "../../../lib/clientApi";
+import { errorMessage } from "../../../lib/errorMessage";
 import ErrorAlert from "../../../components/ErrorAlert";
 
 type ReviewerAssignment = {
@@ -44,9 +46,9 @@ export default function ReviewerDashboardPage() {
         await apiJson("/auth/session", { method: "GET" });
         if (!mounted) return;
         await loadAssignments();
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to load reviewer assignments");
+        setError(errorMessage(err) || "Failed to load reviewer assignments");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -68,8 +70,8 @@ export default function ReviewerDashboardPage() {
       });
       await loadAssignments();
       setMessage(response === "accept" ? "Assignment accepted." : "Assignment declined.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to update assignment");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to update assignment");
     } finally {
       setBusyId(null);
     }
@@ -101,8 +103,8 @@ export default function ReviewerDashboardPage() {
       });
       await loadAssignments();
       setMessage("Review submitted.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to submit review");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to submit review");
     } finally {
       setBusyId(null);
     }
@@ -116,9 +118,9 @@ export default function ReviewerDashboardPage() {
         <h1>Reviewer Assignments</h1>
         <p>Respond quickly to invitations and keep review deadlines on track.</p>
         <div className="meta-row">
-          <a href="/dashboard" className="button button-ghost compact">
+          <Link href="/dashboard" className="button button-ghost compact">
             Back to workspace
-          </a>
+          </Link>
         </div>
       </section>
 

@@ -1,8 +1,10 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Source_Serif_4, Space_Grotesk } from "next/font/google";
 import Logo from "../components/Logo";
 import TopNav from "../components/TopNav";
+import { getSiteUrl } from "../lib/seo";
 
 const headingFont = Space_Grotesk({
   subsets: ["latin"],
@@ -17,24 +19,66 @@ const bodyFont = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl()),
   title: "Publication Platform | Editorial Workspace",
   description: "Multi-journal publishing platform for submissions, review, and publication.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: "/",
+    title: "Publication Platform | Editorial Workspace",
+    description: "Multi-journal publishing platform for submissions, review, and publication.",
+    siteName: "STM Journals",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Publication Platform | Editorial Workspace",
+    description: "Multi-journal publishing platform for submissions, review, and publication.",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const siteUrl = getSiteUrl();
+  const orgSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "STM Journals",
+    url: siteUrl,
+    logo: `${siteUrl}/favicon.ico`,
+    sameAs: [siteUrl],
+  };
+  const webSiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "STM Journals",
+    url: siteUrl,
+    publisher: {
+      "@type": "Organization",
+      name: "STM Journals",
+      url: siteUrl,
+    },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${siteUrl}/journals?query={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  };
+
   return (
     <html lang="en">
       <body className={`${headingFont.variable} ${bodyFont.variable}`}>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgSchema) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteSchema) }} />
         <div className="site-shell">
           <header className="site-header">
             <div className="container header-row">
-              <a href="/" className="brand">
+              <Link href="/" className="brand">
                 <Logo style={{ height: "48px", width: "48px", flexShrink: 0 }} />
                 <span className="brand-copy">
                   <strong>STM Journals</strong>
                   <small>&#123;Scientific, Technical, Medical&#125;</small>
                 </span>
-              </a>
+              </Link>
               <TopNav />
             </div>
           </header>
@@ -49,18 +93,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div>
                 <p style={{ fontWeight: 600, color: "var(--ink-800)", marginBottom: "12px" }}>Platform</p>
                 <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <li><a href="/" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Journals Directory</a></li>
-                  <li><a href="/about" style={{ color: "var(--ink-700)", textDecoration: "none" }}>About Us</a></li>
-                  <li><a href="/policies" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Policies & Ethics</a></li>
+                  <li><Link href="/" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Journals Directory</Link></li>
+                  <li><Link href="/about" style={{ color: "var(--ink-700)", textDecoration: "none" }}>About Us</Link></li>
+                  <li><Link href="/policies" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Policies & Ethics</Link></li>
                 </ul>
               </div>
               <div>
                 <p style={{ fontWeight: 600, color: "var(--ink-800)", marginBottom: "12px" }}>Information For</p>
                 <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <li><a href="/authors" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Authors</a></li>
-                  <li><a href="/readers" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Readers</a></li>
-                  <li><a href="/editors" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Editors</a></li>
-                  <li><a href="/subscribers" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Subscribers</a></li>
+                  <li><Link href="/authors" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Authors</Link></li>
+                  <li><Link href="/readers" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Readers</Link></li>
+                  <li><Link href="/editors" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Editors</Link></li>
+                  <li><Link href="/subscribers" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Subscribers</Link></li>
                 </ul>
               </div>
             </div>

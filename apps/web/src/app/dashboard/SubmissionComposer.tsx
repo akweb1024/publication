@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiJson } from "../../lib/clientApi";
+import { errorMessage } from "../../lib/errorMessage";
 import ErrorAlert from "../../components/ErrorAlert";
 
 type Journal = { id: string; slug: string; title: string; description?: string | null };
@@ -155,9 +157,9 @@ export default function SubmissionComposer() {
           await loadSubmissions(first);
           await loadPolicies(first);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to load dashboard");
+        setError(errorMessage(err) || "Failed to load dashboard");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -170,7 +172,7 @@ export default function SubmissionComposer() {
 
   useEffect(() => {
     if (!selectedJournal) return;
-    loadSubmissions(selectedJournal).catch((err: any) => setError(err?.message ?? "Failed to load submissions"));
+    loadSubmissions(selectedJournal).catch((err: unknown) => setError(errorMessage(err) || "Failed to load submissions"));
     loadPolicies(selectedJournal).catch(() => {
       setActiveRequiredPolicies([]);
     });
@@ -181,8 +183,8 @@ export default function SubmissionComposer() {
       setCurrentSubmission(null);
       return;
     }
-    loadCurrentSubmission(currentSubmissionId).catch((err: any) =>
-      setError(err?.message ?? "Failed to load submission")
+    loadCurrentSubmission(currentSubmissionId).catch((err: unknown) =>
+      setError(errorMessage(err) || "Failed to load submission")
     );
   }, [currentSubmissionId]);
 
@@ -199,8 +201,8 @@ export default function SubmissionComposer() {
       await loadSubmissions(selectedJournal);
       setCurrentSubmissionId(draft.id);
       setSuccess("Draft created.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to create draft");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to create draft");
     } finally {
       setBusyAction(null);
     }
@@ -248,9 +250,9 @@ export default function SubmissionComposer() {
       setLastSavedAt(new Date());
       await loadSubmissions(selectedJournal);
       if (options.showSuccess) setSuccess("Draft metadata saved.");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setAutosaveState("error");
-      setError(err?.message ?? "Failed to save metadata");
+      setError(errorMessage(err) || "Failed to save metadata");
     } finally {
       if (options.markBusy) setBusyAction(null);
     }
@@ -281,8 +283,8 @@ export default function SubmissionComposer() {
       setContributorAffiliation("");
       await loadCurrentSubmission(currentSubmissionId);
       setSuccess("Contributor added.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to add contributor");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to add contributor");
     } finally {
       setBusyAction(null);
     }
@@ -314,8 +316,8 @@ export default function SubmissionComposer() {
       setCurrentSubmission((prev) => (prev ? { ...prev, hasManuscriptFile: true } : prev));
       setFile(null);
       setSuccess("File uploaded.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to upload file");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to upload file");
     } finally {
       setBusyAction(null);
     }
@@ -339,8 +341,8 @@ export default function SubmissionComposer() {
       await loadCurrentSubmission(currentSubmissionId);
       await loadSubmissions(selectedJournal);
       setSuccess("Submission sent successfully.");
-    } catch (err: any) {
-      const message = err?.message ?? "Failed to submit";
+    } catch (err: unknown) {
+      const message = errorMessage(err) || "Failed to submit";
       setError(message);
     } finally {
       setBusyAction(null);
@@ -501,9 +503,9 @@ export default function SubmissionComposer() {
             <span className="status-dot" />
             Logged in as {user.name}
           </span>
-          <a className="button button-ghost compact" href="/dashboard">
+          <Link className="button button-ghost compact" href="/dashboard">
             Back to workspace
-          </a>
+          </Link>
         </div>
         <div className="card" style={{ marginTop: 14, color: "var(--ink-900)" }}>
           <p className="eyebrow">Progress</p>

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { apiJson } from "../../../lib/clientApi";
+import { errorMessage } from "../../../lib/errorMessage";
 import ErrorAlert from "../../../components/ErrorAlert";
 
 type Journal = { id: string; slug: string; title: string };
@@ -56,9 +58,9 @@ export default function PublishingDashboardPage() {
         const first = journalsRes.items[0]?.slug ?? "";
         setJournalSlug(first);
         if (first) await loadPublishingData(first);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!mounted) return;
-        setError(err?.message ?? "Failed to load publishing dashboard");
+        setError(errorMessage(err) || "Failed to load publishing dashboard");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -71,7 +73,7 @@ export default function PublishingDashboardPage() {
 
   useEffect(() => {
     if (!journalSlug) return;
-    loadPublishingData(journalSlug).catch((err: any) => setError(err?.message ?? "Failed to refresh publishing data"));
+    loadPublishingData(journalSlug).catch((err: unknown) => setError(errorMessage(err) || "Failed to refresh publishing data"));
   }, [journalSlug]);
 
   useEffect(() => {
@@ -96,8 +98,8 @@ export default function PublishingDashboardPage() {
       });
       await loadPublishingData(journalSlug);
       setMessage("Volume created.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to create volume");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to create volume");
     } finally {
       setBusyId(null);
     }
@@ -118,8 +120,8 @@ export default function PublishingDashboardPage() {
       });
       await loadPublishingData(journalSlug);
       setMessage("Issue created.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to create issue");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to create issue");
     } finally {
       setBusyId(null);
     }
@@ -135,8 +137,8 @@ export default function PublishingDashboardPage() {
       await apiJson(`/articles/${articleId}/assign-issue`, { method: "POST", body: JSON.stringify({ issueId }) });
       await loadPublishingData(journalSlug);
       setMessage("Article assigned to issue.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to assign issue");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to assign issue");
     } finally {
       setBusyId(null);
     }
@@ -152,8 +154,8 @@ export default function PublishingDashboardPage() {
       await apiJson(`/articles/${articleId}/publish`, { method: "POST", body: JSON.stringify({ pdfFileId }) });
       await loadPublishingData(journalSlug);
       setMessage("Article published.");
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to publish article");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to publish article");
     } finally {
       setBusyId(null);
     }
@@ -167,9 +169,9 @@ export default function PublishingDashboardPage() {
         <h1>Publishing Operations</h1>
         <p>Create volumes/issues, assign accepted papers, and publish articles with PDF assets.</p>
         <div className="meta-row">
-          <a href="/dashboard/editor" className="button button-ghost compact">
+          <Link href="/dashboard/editor" className="button button-ghost compact">
             Back to Editorial Queue
-          </a>
+          </Link>
         </div>
       </section>
       {message ? <p style={{ color: "var(--accent-2)", fontWeight: 700 }}>{message}</p> : null}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { cache } from "react";
 import JournalNav from "../../../components/JournalNav";
+import Breadcrumbs from "../../../components/Breadcrumbs";
 import { getJournal, listIssueArticles, listIssues, listVolumes } from "../../../lib/api";
 
 const SITE_BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -74,6 +75,13 @@ export default async function ArchivePage({ params }: { params: Promise<{ journa
     <main className="main-stack">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
       <JournalNav journalSlug={journalSlug} journalTitle={journal.title} />
+      <Breadcrumbs
+        items={[
+          { label: "Journals", href: "/journals" },
+          { label: journal.title, href: `/${journalSlug}` },
+          { label: "Archive" },
+        ]}
+      />
       <section className="hero">
         <p className="eyebrow" style={{ color: "rgba(234, 244, 255, 0.84)" }}>
           Archive
