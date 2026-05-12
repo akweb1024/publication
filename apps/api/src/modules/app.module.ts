@@ -12,6 +12,8 @@ import { ReviewerModule } from "./reviewer/reviewer.module.js";
 import { PublishingModule } from "./publishing/publishing.module.js";
 import { FilesModule } from "./storage/files.module.js";
 import { UsersModule } from "./users/users.module.js";
+import { AgentModule } from "./agent/agent.module.js";
+import { PublicModule } from "./public/public.module.js";
 
 @Module({
   imports: [
@@ -30,7 +32,9 @@ import { UsersModule } from "./users/users.module.js";
     ReviewerModule,
     PublishingModule,
     FilesModule,
-    UsersModule
+    UsersModule,
+    AgentModule,
+    PublicModule
   ],
 })
 export class AppModule {}
