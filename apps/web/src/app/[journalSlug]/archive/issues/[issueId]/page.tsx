@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import JournalNav from "../../../../../components/JournalNav";
 import Breadcrumbs from "../../../../../components/Breadcrumbs";
 import { getJournal, listIssueArticles, listIssues, listVolumes } from "../../../../../lib/api";
@@ -11,11 +12,22 @@ export async function generateMetadata({
   params: Promise<{ journalSlug: string; issueId: string }>;
 }): Promise<Metadata> {
   const { journalSlug, issueId } = await params;
-  const [journal, issues, volumes] = await Promise.all([
-    getJournal(journalSlug),
-    listIssues(journalSlug),
-    listVolumes(journalSlug),
-  ]);
+  let journal: Awaited<ReturnType<typeof getJournal>>;
+  let issues: Awaited<ReturnType<typeof listIssues>>;
+  let volumes: Awaited<ReturnType<typeof listVolumes>>;
+  try {
+    [journal, issues, volumes] = await Promise.all([
+      getJournal(journalSlug),
+      listIssues(journalSlug),
+      listVolumes(journalSlug),
+    ]);
+  } catch {
+    return {
+      title: "Issue Not Found",
+      description: "The requested issue or journal could not be found.",
+      robots: { index: false, follow: false },
+    };
+  }
   const issue = issues.find((item) => item.id === issueId);
   if (!issue) {
     return {
@@ -52,8 +64,15 @@ export default async function IssueDetailPage({
   params: Promise<{ journalSlug: string; issueId: string }>;
 }) {
   const { journalSlug, issueId } = await params;
-  const journal = await getJournal(journalSlug);
-  const [volumes, issues] = await Promise.all([listVolumes(journalSlug), listIssues(journalSlug)]);
+  let journal: Awaited<ReturnType<typeof getJournal>>;
+  let volumes: Awaited<ReturnType<typeof listVolumes>>;
+  let issues: Awaited<ReturnType<typeof listIssues>>;
+  try {
+    journal = await getJournal(journalSlug);
+    [volumes, issues] = await Promise.all([listVolumes(journalSlug), listIssues(journalSlug)]);
+  } catch {
+    notFound();
+  }
   const issue = issues.find((item) => item.id === issueId);
 
   if (!issue) {

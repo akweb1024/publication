@@ -22,6 +22,7 @@ const { DataSyncRunStatus, JournalRole, StorageProvider, StorageTarget } = prism
   StorageProvider: typeof import("@prisma/client").StorageProvider;
   StorageTarget: typeof import("@prisma/client").StorageTarget;
 };
+const DEFAULT_GOOGLE_ADMIN_EMAIL = "amit.rai@celnet.in";
 
 const UpdateJournalDto = z.object({
   title: z.string().min(1).optional(),
@@ -31,6 +32,16 @@ const UpdateJournalDto = z.object({
   timezone: z.string().min(1).optional(),
   brandingJson: z.record(z.any()).optional(),
   requiredPolicyKeys: z.array(z.string().min(1)).optional(),
+});
+const CreateJournalDto = z.object({
+  slug: z
+    .string()
+    .min(3)
+    .max(120)
+    .regex(/^[a-z0-9-]+$/, "Slug must contain only lowercase letters, numbers, and hyphens"),
+  title: z.string().min(2).max(200),
+  description: z.string().max(4000).optional().nullable(),
+  timezone: z.string().min(1).max(120).default("UTC"),
 });
 
 const SETTINGS_ROLES: JournalRoleType[] = [
@@ -97,6 +108,38 @@ export class JournalsController {
     @Inject(StorageService) private readonly storage: StorageService
   ) {}
 
+  private isDefaultAdminEmail(email: string | null | undefined) {
+    return (email ?? "").trim().toLowerCase() === DEFAULT_GOOGLE_ADMIN_EMAIL;
+  }
+
+  private async assertCanManagePlatform(user: { id: string; email?: string | null }) {
+    if (this.isDefaultAdminEmail(user.email)) return;
+    const managementRole = await this.prisma.journalRoleAssignment.findFirst({
+      where: { userId: user.id, role: { in: SETTINGS_ROLES } },
+      select: { id: true },
+    });
+    if (!managementRole) throw new NotFoundException("Journal not found");
+  }
+
+  private async ensureDefaultAdminForAllJournals() {
+    const defaultAdmin = await this.prisma.user.findUnique({
+      where: { email: DEFAULT_GOOGLE_ADMIN_EMAIL },
+      select: { id: true },
+    });
+    if (!defaultAdmin) return { ok: false, reason: "default admin user not found", affectedJournals: 0 };
+    const journals = await this.prisma.journal.findMany({ select: { id: true } });
+    if (journals.length === 0) return { ok: true, affectedJournals: 0 };
+    await this.prisma.journalRoleAssignment.createMany({
+      data: journals.map((journal) => ({
+        journalId: journal.id,
+        userId: defaultAdmin.id,
+        role: JournalRole.JOURNAL_ADMIN,
+      })),
+      skipDuplicates: true,
+    });
+    return { ok: true, affectedJournals: journals.length };
+  }
+
   @Get()
   async list() {
     const journals = await this.prisma.journal.findMany({
@@ -105,6 +148,75 @@ export class JournalsController {
       orderBy: { createdAt: "asc" },
     });
     return { items: journals };
+  }
+
+  @UseGuards(SessionGuard)
+  @Post()
+  async create(@Body() body: unknown, @CurrentUser() user: any) {
+    await this.assertCanManagePlatform(user);
+    const dto = CreateJournalDto.parse(body);
+
+    const existing = await this.prisma.journal.findUnique({
+      where: { slug: dto.slug },
+      select: { id: true },
+    });
+    if (existing) throw new BadRequestException("Journal slug already exists");
+
+    let publisher = await this.prisma.publisher.findFirst({
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (!publisher) {
+      publisher = await this.prisma.publisher.create({
+        data: {
+          name: "STM Journals",
+          defaultLocale: "en",
+          supportEmail: user.email ?? "support@stmjournals.com",
+        },
+        select: { id: true },
+      });
+    }
+
+    const created = await this.prisma.journal.create({
+      data: {
+        publisherId: publisher.id,
+        slug: dto.slug,
+        title: dto.title.trim(),
+        description: dto.description?.trim() || null,
+        timezone: dto.timezone.trim() || "UTC",
+        status: "LIVE",
+      },
+      select: { id: true, slug: true, title: true, description: true, timezone: true },
+    });
+
+    await this.prisma.journalRoleAssignment.createMany({
+      data: [
+        { journalId: created.id, userId: user.id, role: JournalRole.JOURNAL_ADMIN },
+      ],
+      skipDuplicates: true,
+    });
+
+    await this.ensureDefaultAdminForAllJournals();
+
+    await this.prisma.auditLog.create({
+      data: {
+        journalId: created.id,
+        actorUserId: user.id,
+        action: "journal.create",
+        entityType: "Journal",
+        entityId: created.id,
+        metadataJson: { slug: created.slug, title: created.title },
+      },
+    });
+
+    return created;
+  }
+
+  @UseGuards(SessionGuard)
+  @Post("admin/backfill-default-admin")
+  async backfillDefaultAdmin(@CurrentUser() user: any) {
+    await this.assertCanManagePlatform(user);
+    return this.ensureDefaultAdminForAllJournals();
   }
 
   @Get(":journalSlug")

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cache } from "react";
+import { notFound } from "next/navigation";
 import { getJournal, listPolicies } from "../../lib/api";
 import JournalNav from "../../components/JournalNav";
 import Breadcrumbs from "../../components/Breadcrumbs";
@@ -10,7 +11,16 @@ const getPolicies = cache(async (journalSlug: string) => listPolicies(journalSlu
 
 export async function generateMetadata({ params }: { params: Promise<{ journalSlug: string }> }): Promise<Metadata> {
   const { journalSlug } = await params;
-  const journal = await getJournal(journalSlug);
+  let journal: Awaited<ReturnType<typeof getJournal>>;
+  try {
+    journal = await getJournal(journalSlug);
+  } catch {
+    return {
+      title: "Journal Not Found",
+      description: "The requested journal could not be found.",
+      robots: { index: false, follow: false },
+    };
+  }
   const description = journal.description?.trim() || `Explore ${journal.title}: profile, policies, archive, and editorial context.`;
   const canonicalUrl = `${SITE_BASE}/${journalSlug}`;
   return {
@@ -34,7 +44,12 @@ export async function generateMetadata({ params }: { params: Promise<{ journalSl
 
 export default async function JournalPage({ params }: { params: Promise<{ journalSlug: string }> }) {
   const { journalSlug } = await params;
-  const journal = await getJournal(journalSlug);
+  let journal: Awaited<ReturnType<typeof getJournal>>;
+  try {
+    journal = await getJournal(journalSlug);
+  } catch {
+    notFound();
+  }
   const policies = await getPolicies(journalSlug);
   const canonicalUrl = `${SITE_BASE}/${journalSlug}`;
   const schema = {

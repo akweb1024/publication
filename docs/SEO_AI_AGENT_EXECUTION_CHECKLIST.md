@@ -19,21 +19,21 @@ Primary outcomes:
 ## Sprint 0 (Baseline and Guardrails)
 
 ### 0.1 Baseline checks
-- [ ] Run production build and record baseline.
+- [x] Run production build and record baseline.
   - Command: `npm run build`
-- [ ] Run API readiness baseline.
+- [x] Run API readiness baseline.
   - Endpoint: `GET /api/v1/health/ready`
-- [ ] Validate discovery baseline.
+- [x] Validate discovery baseline.
   - Endpoints: `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/api/v1/agent/capabilities`
 
 ### 0.2 Deployment guardrails
-- [ ] Confirm these files are deployment source of truth:
+- [x] Confirm these files are deployment source of truth:
   - [docker-compose.coolify.yml](/home/itb09/Desktop/test/publication/docker-compose.coolify.yml)
   - [Dockerfile.api](/home/itb09/Desktop/test/publication/Dockerfile.api)
   - [Dockerfile.web](/home/itb09/Desktop/test/publication/Dockerfile.web)
   - [Dockerfile.worker](/home/itb09/Desktop/test/publication/Dockerfile.worker)
   - [Dockerfile.migrate](/home/itb09/Desktop/test/publication/Dockerfile.migrate)
-- [ ] Confirm runtime env consistency against:
+- [x] Confirm runtime env consistency against:
   - [docs/COOLIFY_ENV_FRESH_TEMPLATE.env](/home/itb09/Desktop/test/publication/docs/COOLIFY_ENV_FRESH_TEMPLATE.env)
   - [docs/COOLIFY_DEPLOYMENT.md](/home/itb09/Desktop/test/publication/docs/COOLIFY_DEPLOYMENT.md)
 
@@ -46,19 +46,19 @@ Acceptance:
 ## Sprint 1 (Navigation, IA, and Internal Linking)
 
 ### 1.1 Navigation clarity
-- [ ] Add a dedicated journals directory route if needed (`/journals`) and link from top nav.
+- [x] Add a dedicated journals directory route if needed (`/journals`) and link from top nav.
   - Files:
     - [apps/web/src/app/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/page.tsx)
     - [apps/web/src/app/layout.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/layout.tsx)
     - TopNav component (if external to app folder)
-- [ ] Ensure role pages are visible in nav/footer and internally linked:
+- [x] Ensure role pages are visible in nav/footer and internally linked:
   - [apps/web/src/app/authors/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/authors/page.tsx)
   - [apps/web/src/app/readers/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/readers/page.tsx)
   - [apps/web/src/app/editors/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/editors/page.tsx)
   - [apps/web/src/app/subscribers/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/subscribers/page.tsx)
 
 ### 1.2 Breadcrumbs + related links
-- [ ] Add breadcrumbs on deep pages:
+- [x] Add breadcrumbs on deep pages:
   - [apps/web/src/app/[journalSlug]/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/[journalSlug]/page.tsx)
   - [apps/web/src/app/[journalSlug]/archive/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/[journalSlug]/archive/page.tsx)
   - [apps/web/src/app/[journalSlug]/archive/volumes/[volumeId]/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/[journalSlug]/archive/volumes/[volumeId]/page.tsx)
@@ -66,7 +66,7 @@ Acceptance:
   - [apps/web/src/app/[journalSlug]/articles/[articleId]/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/[journalSlug]/articles/[articleId]/page.tsx)
   - [apps/web/src/app/[journalSlug]/policies/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/[journalSlug]/policies/page.tsx)
   - [apps/web/src/app/[journalSlug]/policies/[key]/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/[journalSlug]/policies/[key]/page.tsx)
-- [ ] Add “Related pages” sections to role and policy pages.
+- [x] Add “Related pages” sections to role and policy pages.
   - [apps/web/src/app/policies/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/policies/page.tsx)
   - [apps/web/src/app/about/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/about/page.tsx)
 
@@ -79,19 +79,19 @@ Acceptance:
 ## Sprint 2 (Metadata, Canonicals, Open Graph, Page Semantics)
 
 ### 2.1 Shared metadata model
-- [ ] Create shared metadata builder utility for App Router pages.
+- [x] Create shared metadata builder utility for App Router pages.
   - Suggested file: `apps/web/src/lib/seo.ts`
-- [ ] Add per-page `metadata`/`generateMetadata` for all public pages.
+- [x] Add per-page `metadata`/`generateMetadata` for all public pages.
   - Files under: [apps/web/src/app](/home/itb09/Desktop/test/publication/apps/web/src/app)
 
 ### 2.2 Canonical and social metadata
-- [ ] Add canonical URL output from `NEXT_PUBLIC_SITE_URL`.
+- [x] Add canonical URL output from `NEXT_PUBLIC_SITE_URL`.
   - [apps/web/src/app/layout.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/layout.tsx)
-- [ ] Add Open Graph and Twitter metadata for:
+- [x] Add Open Graph and Twitter metadata for:
   - Home, journal, article, policy, and role pages.
 
 ### 2.3 Semantic HTML and accessibility
-- [ ] Confirm one `h1` per page and logical heading order.
+- [x] Confirm one `h1` per page and logical heading order.
 - [ ] Ensure landmarks exist: `header`, `nav`, `main`, `footer`.
   - [apps/web/src/app/layout.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/layout.tsx)
 - [ ] Add “Skip to content” link in layout.
@@ -105,17 +105,17 @@ Acceptance:
 ## Sprint 3 (Schema.org JSON-LD and Scholarly Metadata)
 
 ### 3.1 Site and org schema
-- [ ] Inject JSON-LD for `Organization` and `WebSite` (+ `SearchAction`) in root layout.
+- [x] Inject JSON-LD for `Organization` and `WebSite` (+ `SearchAction`) in root layout.
   - [apps/web/src/app/layout.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/layout.tsx)
 
 ### 3.2 Journal and article schema
-- [ ] Add `Periodical` schema on journal-level pages.
+- [x] Add `Periodical` schema on journal-level pages.
   - [apps/web/src/app/[journalSlug]/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/[journalSlug]/page.tsx)
-- [ ] Add `ScholarlyArticle` schema on article pages.
+- [x] Add `ScholarlyArticle` schema on article pages.
   - [apps/web/src/app/[journalSlug]/articles/[articleId]/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/[journalSlug]/articles/[articleId]/page.tsx)
 
 ### 3.3 Citation meta tags
-- [ ] Add citation tags on article pages:
+- [x] Add citation tags on article pages:
   - `citation_title`
   - `citation_author`
   - `citation_publication_date`
@@ -131,7 +131,7 @@ Acceptance:
 ## Sprint 4 (FAQ Snippets + Role and Policy Content Depth)
 
 ### 4.1 FAQ blocks for snippet capture
-- [ ] Add FAQ sections + `FAQPage` schema:
+- [x] Add FAQ sections + `FAQPage` schema:
   - [apps/web/src/app/authors/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/authors/page.tsx)
   - [apps/web/src/app/editors/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/editors/page.tsx)
   - [apps/web/src/app/readers/page.tsx](/home/itb09/Desktop/test/publication/apps/web/src/app/readers/page.tsx)
@@ -158,23 +158,23 @@ Acceptance:
   - [apps/api/src/modules/agent/agent.controller.ts](/home/itb09/Desktop/test/publication/apps/api/src/modules/agent/agent.controller.ts)
 
 ### 5.2 Add well-known machine-readable descriptor
-- [ ] Add `/.well-known/agent.json` route in web app.
+- [x] Add `/.well-known/agent.json` route in web app.
   - Suggested file: `apps/web/src/app/.well-known/agent.json/route.ts`
   - Include: site URL, API base URL, auth mode, discovery links.
 
 ### 5.3 Expand capabilities contract
-- [ ] Extend `/api/v1/agent/capabilities` with:
+- [x] Extend `/api/v1/agent/capabilities` with:
   - versioning
   - endpoint categories
   - auth requirements by endpoint class
   - rate-limit hints
   - contact/support URL
-- [ ] Keep module wired in:
+- [x] Keep module wired in:
   - [apps/api/src/modules/agent/agent.module.ts](/home/itb09/Desktop/test/publication/apps/api/src/modules/agent/agent.module.ts)
   - [apps/api/src/modules/app.module.ts](/home/itb09/Desktop/test/publication/apps/api/src/modules/app.module.ts)
 
 ### 5.4 Public data endpoints for summarization/recommendation
-- [ ] Add read-only public APIs for journal/article metadata:
+- [x] Add read-only public APIs for journal/article metadata:
   - Suggested module: `apps/api/src/modules/public/*`
   - Endpoints:
     - `/api/v1/public/journals`
@@ -233,11 +233,10 @@ Acceptance:
 ## Done Definition (Project Level)
 
 Mark project complete when all are true:
-- [ ] Public pages have unique metadata + canonical URLs.
-- [ ] Journal/article pages include structured data and scholarly meta tags.
-- [ ] Internal linking is intentional and deep pages are easy to reach.
-- [ ] Robots + sitemap strategy supports full crawl coverage.
-- [ ] FAQ + role/policy pages support snippet extraction.
-- [ ] AI agent endpoints (`llms.txt`, well-known, capabilities API, public metadata APIs) are stable and documented.
+- [x] Public pages have unique metadata + canonical URLs.
+- [x] Journal/article pages include structured data and scholarly meta tags.
+- [x] Internal linking is intentional and deep pages are easy to reach.
+- [x] Robots + sitemap strategy supports full crawl coverage.
+- [x] FAQ + role/policy pages support snippet extraction.
+- [x] AI agent endpoints (`llms.txt`, well-known, capabilities API, public metadata APIs) are stable and documented.
 - [ ] Health, crawl, and agent access are production monitored.
-

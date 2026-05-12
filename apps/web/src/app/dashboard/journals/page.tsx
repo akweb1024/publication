@@ -60,6 +60,10 @@ export default function JournalSettingsPage() {
   const [roleName, setRoleName] = useState<(typeof ROLE_OPTIONS)[number]>("SUBSCRIBER");
   const [subscriberStartAt, setSubscriberStartAt] = useState("");
   const [subscriberEndAt, setSubscriberEndAt] = useState("");
+  const [newSlug, setNewSlug] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newTimezone, setNewTimezone] = useState("UTC");
 
   const selectedJournal = useMemo(
     () => journals.find((journal) => journal.slug === journalSlug) ?? null,
@@ -120,6 +124,19 @@ export default function JournalSettingsPage() {
     setRoleAssignments(roleRes.items);
   }
 
+  async function reloadJournals(preferredSlug?: string) {
+    const response = await apiJson<{ items: Journal[] }>("/journals", { method: "GET" });
+    setJournals(response.items);
+    const nextSlug =
+      (preferredSlug && response.items.some((item) => item.slug === preferredSlug) ? preferredSlug : null) ??
+      response.items[0]?.slug ??
+      "";
+    setJournalSlug(nextSlug);
+    if (nextSlug) {
+      await loadJournal(nextSlug);
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
     async function boot() {
@@ -127,12 +144,8 @@ export default function JournalSettingsPage() {
       setError(null);
       try {
         await apiJson("/auth/session", { method: "GET" });
-        const response = await apiJson<{ items: Journal[] }>("/journals", { method: "GET" });
+        await reloadJournals();
         if (!mounted) return;
-        setJournals(response.items);
-        const first = response.items[0]?.slug ?? "";
-        setJournalSlug(first);
-        if (first) await loadJournal(first);
       } catch (err: unknown) {
         if (!mounted) return;
         setError(errorMessage(err) || "Failed to load journal settings");
@@ -238,6 +251,56 @@ export default function JournalSettingsPage() {
     }
   }
 
+  async function createJournal() {
+    if (!newSlug.trim() || !newTitle.trim()) return;
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const created = await apiJson<Journal>("/journals", {
+        method: "POST",
+        body: JSON.stringify({
+          slug: newSlug.trim().toLowerCase(),
+          title: newTitle.trim(),
+          description: newDescription.trim() || null,
+          timezone: newTimezone.trim() || "UTC",
+        }),
+      });
+      setMessage(`Journal "${created.title}" created.`);
+      setNewSlug("");
+      setNewTitle("");
+      setNewDescription("");
+      setNewTimezone("UTC");
+      await reloadJournals(created.slug);
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to create journal");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function runDefaultAdminBackfill() {
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await apiJson<{ ok: boolean; affectedJournals: number; reason?: string }>(
+        "/journals/admin/backfill-default-admin",
+        { method: "POST" }
+      );
+      if (!result.ok && result.reason) {
+        setMessage(`Backfill skipped: ${result.reason}.`);
+      } else {
+        setMessage(`Backfill completed for ${result.affectedJournals} journals.`);
+      }
+      await loadJournal(journalSlug);
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Failed to run default admin backfill");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) return <p>Loading journal settings...</p>;
 
   return (
@@ -255,6 +318,64 @@ export default function JournalSettingsPage() {
 
       {message ? <p style={{ color: "var(--accent-2)", fontWeight: 700 }}>{message}</p> : null}
       {error ? <ErrorAlert message={error} /> : null}
+
+      <section className="card">
+        <p className="eyebrow">Create Journal</p>
+        <div className="grid" style={{ marginTop: 8 }}>
+          <div className="field">
+            <label htmlFor="new-journal-slug">Slug</label>
+            <input
+              id="new-journal-slug"
+              className="input"
+              value={newSlug}
+              onChange={(event) => setNewSlug(event.target.value)}
+              placeholder="cardiology-research"
+              disabled={saving}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="new-journal-title">Title</label>
+            <input
+              id="new-journal-title"
+              className="input"
+              value={newTitle}
+              onChange={(event) => setNewTitle(event.target.value)}
+              placeholder="Journal of Cardiology Research"
+              disabled={saving}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="new-journal-timezone">Timezone</label>
+            <input
+              id="new-journal-timezone"
+              className="input"
+              value={newTimezone}
+              onChange={(event) => setNewTimezone(event.target.value)}
+              placeholder="UTC"
+              disabled={saving}
+            />
+          </div>
+        </div>
+        <div className="field" style={{ marginTop: 10 }}>
+          <label htmlFor="new-journal-description">Description (optional)</label>
+          <textarea
+            id="new-journal-description"
+            className="input"
+            rows={3}
+            value={newDescription}
+            onChange={(event) => setNewDescription(event.target.value)}
+            disabled={saving}
+          />
+        </div>
+        <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button className="button compact" type="button" disabled={saving || !newSlug.trim() || !newTitle.trim()} onClick={createJournal}>
+            Create Journal
+          </button>
+          <button className="button button-ghost compact" type="button" disabled={saving} onClick={runDefaultAdminBackfill}>
+            Backfill amit.rai@celnet.in Admin Access
+          </button>
+        </div>
+      </section>
 
       <section className="card">
         <p className="eyebrow">Target Journal</p>
