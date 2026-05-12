@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { apiJson } from "../../lib/clientApi";
 import { errorMessage } from "../../lib/errorMessage";
@@ -239,7 +240,7 @@ export default function LoginPage() {
               )}
               {mfaUri ? (
                 <div style={{ display: "grid", justifyItems: "start", gap: 8 }}>
-                  <img
+                  <Image
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(mfaUri)}`}
                     alt="MFA QR code for authenticator setup"
                     width={180}

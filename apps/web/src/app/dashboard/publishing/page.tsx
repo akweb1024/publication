@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiJson } from "../../../lib/clientApi";
 import { errorMessage } from "../../../lib/errorMessage";
@@ -33,7 +33,7 @@ export default function PublishingDashboardPage() {
   const suggestedNextYear =
     volumes.length > 0 ? String(Math.max(...volumes.map((volume) => volume.year)) + 1) : String(new Date().getFullYear());
 
-  async function loadPublishingData(slug: string) {
+  const loadPublishingData = useCallback(async (slug: string) => {
     const [volumeRes, issueRes, articleRes] = await Promise.all([
       apiJson<{ items: Volume[] }>(`/journals/${encodeURIComponent(slug)}/volumes`, { method: "GET" }),
       apiJson<{ items: Issue[] }>(`/journals/${encodeURIComponent(slug)}/issues`, { method: "GET" }),
@@ -42,8 +42,11 @@ export default function PublishingDashboardPage() {
     setVolumes(volumeRes.items);
     setIssues(issueRes.items);
     setArticles(articleRes.items);
-    if (!issueVolumeId && volumeRes.items[0]?.id) setIssueVolumeId(volumeRes.items[0].id);
-  }
+    const firstVolumeId = volumeRes.items[0]?.id;
+    if (firstVolumeId) {
+      setIssueVolumeId((prev) => prev || firstVolumeId);
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -69,12 +72,12 @@ export default function PublishingDashboardPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [loadPublishingData]);
 
   useEffect(() => {
     if (!journalSlug) return;
     loadPublishingData(journalSlug).catch((err: unknown) => setError(errorMessage(err) || "Failed to refresh publishing data"));
-  }, [journalSlug]);
+  }, [journalSlug, loadPublishingData]);
 
   useEffect(() => {
     if (!volumes.length) return;

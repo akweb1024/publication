@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiJson } from "../../lib/clientApi";
 import { errorMessage } from "../../lib/errorMessage";
 import ErrorAlert from "../../components/ErrorAlert";
@@ -96,26 +96,26 @@ export default function SubmissionComposer() {
 
   const journalOptions = useMemo(() => journals.map((j) => ({ value: j.slug, label: j.title })), [journals]);
 
-  async function loadSubmissions(journalSlug: string) {
+  const loadSubmissions = useCallback(async (journalSlug: string) => {
     const res = await apiJson<{ items: Submission[] }>(
       `/submissions?journalSlug=${encodeURIComponent(journalSlug)}&mine=true`,
       { method: "GET" }
     );
     setSubmissions(res.items);
     const firstSubmission = res.items[0];
-    if (firstSubmission && !currentSubmissionId) {
-      setCurrentSubmissionId(firstSubmission.id);
+    if (firstSubmission) {
+      setCurrentSubmissionId((prev) => prev || firstSubmission.id);
     }
-  }
+  }, []);
 
-  async function loadPolicies(journalSlug: string) {
+  const loadPolicies = useCallback(async (journalSlug: string) => {
     const required = await apiJson<{ items: ActiveRequiredPolicy[] }>(
       `/journals/${encodeURIComponent(journalSlug)}/policies/active-required`,
       { method: "GET" }
     );
     setActiveRequiredPolicies(required.items);
     setAcceptedPolicyVersionIds(required.items.map((r) => r.policyVersionId));
-  }
+  }, []);
 
   async function loadCurrentSubmission(submissionId: string) {
     const detail = await apiJson<SubmissionDetail>(`/submissions/${submissionId}`, { method: "GET" });
@@ -168,7 +168,7 @@ export default function SubmissionComposer() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [loadPolicies, loadSubmissions]);
 
   useEffect(() => {
     if (!selectedJournal) return;
@@ -176,7 +176,7 @@ export default function SubmissionComposer() {
     loadPolicies(selectedJournal).catch(() => {
       setActiveRequiredPolicies([]);
     });
-  }, [selectedJournal]);
+  }, [loadPolicies, loadSubmissions, selectedJournal]);
 
   useEffect(() => {
     if (!currentSubmissionId) {
@@ -220,7 +220,7 @@ export default function SubmissionComposer() {
     return window.confirm("You have unsaved draft metadata changes. Switch anyway?");
   }
 
-  async function persistDraftMetadata(options: { showSuccess: boolean; markBusy: boolean }) {
+  const persistDraftMetadata = useCallback(async (options: { showSuccess: boolean; markBusy: boolean }) => {
     if (!currentSubmissionId) return;
     if (options.markBusy) setBusyAction("save-metadata");
     if (options.showSuccess) setSuccess(null);
@@ -256,7 +256,7 @@ export default function SubmissionComposer() {
     } finally {
       if (options.markBusy) setBusyAction(null);
     }
-  }
+  }, [abstractText, articleType, currentSubmissionId, keywordsText, loadSubmissions, selectedJournal, title]);
 
   async function addContributor() {
     if (!currentSubmissionId) return;
@@ -364,7 +364,7 @@ export default function SubmissionComposer() {
     return () => {
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     };
-  }, [title, abstractText, keywordsText, articleType, currentSubmissionId, canEditDraft, lastSavedSnapshot, draftIsDirty]);
+  }, [title, abstractText, keywordsText, articleType, currentSubmissionId, canEditDraft, lastSavedSnapshot, draftIsDirty, persistDraftMetadata]);
 
   useEffect(() => {
     const shouldWarn = canEditDraft && draftIsDirty;

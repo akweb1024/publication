@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useState } from "react";
 import ErrorAlert from "../../../components/ErrorAlert";
 import { apiJson } from "../../../lib/clientApi";
 import { errorMessage } from "../../../lib/errorMessage";
@@ -16,10 +17,10 @@ export default function SecuritySettingsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | "setup" | "enable" | "disable">(null);
 
-  async function loadStatus() {
+  const loadStatus = useCallback(async () => {
     const result = await apiJson<{ mfaEnabled: boolean }>("/auth/mfa/status", { method: "GET" });
     setMfaEnabled(result.mfaEnabled);
-  }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -41,7 +42,7 @@ export default function SecuritySettingsPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [loadStatus]);
 
   async function setupMfa() {
     setBusy("setup");
@@ -130,7 +131,7 @@ export default function SecuritySettingsPage() {
             ) : null}
             {setupUri ? (
               <div style={{ display: "grid", justifyItems: "start", gap: 8 }}>
-                <img
+                <Image
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(setupUri)}`}
                   alt="MFA QR code for authenticator setup"
                   width={180}
