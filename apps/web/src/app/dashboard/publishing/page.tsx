@@ -9,6 +9,8 @@ import StatCard from "../../../components/dashboard/StatCard";
 import StatusBadge from "../../../components/dashboard/StatusBadge";
 import ToastNotification from "../../../components/dashboard/ToastNotification";
 import SkeletonBlock from "../../../components/dashboard/SkeletonBlock";
+import ContextualHelp from "../../../components/dashboard/ContextualHelp";
+import ConfirmationModal from "../../../components/dashboard/ConfirmationModal";
 
 type Journal = { id: string; slug: string; title: string };
 type Volume = { id: string; year: number; number: number };
@@ -33,6 +35,7 @@ export default function PublishingDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ tone: "success" | "error" | "info"; message: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState("IN_PRESS");
+  const [confirmPublishArticle, setConfirmPublishArticle] = useState<string | null>(null);
 
   const parsedVolumeYear = Number(volumeYear);
   const yearAlreadyExists = Number.isFinite(parsedVolumeYear) && volumes.some((volume) => volume.year === parsedVolumeYear);
@@ -103,6 +106,7 @@ export default function PublishingDashboardPage() {
   async function createVolume() {
     if (yearAlreadyExists) {
       setError(`Volume for ${volumeYear} already exists in this journal. Only one volume per year is allowed.`);
+      setToast({ tone: "error", message: `Volume for ${volumeYear} already exists.` });
       return;
     }
     setBusyId("create-volume");
@@ -125,6 +129,7 @@ export default function PublishingDashboardPage() {
   async function createIssue() {
     if (!issueVolumeId) {
       setError("Select a volume first.");
+      setToast({ tone: "error", message: "Select a volume first." });
       return;
     }
     setBusyId("create-issue");
@@ -146,7 +151,11 @@ export default function PublishingDashboardPage() {
 
   async function assignIssue(articleId: string) {
     const issueId = assignIssueByArticle[articleId];
-    if (!issueId) return setError("Select an issue before assigning.");
+    if (!issueId) {
+      setError("Select an issue before assigning.");
+      setToast({ tone: "error", message: "Select an issue before assigning." });
+      return;
+    }
     setBusyId(articleId);
     setError(null);
     try {
@@ -163,7 +172,11 @@ export default function PublishingDashboardPage() {
 
   async function publish(articleId: string) {
     const pdfFileId = pdfFileIdByArticle[articleId]?.trim();
-    if (!pdfFileId) return setError("Provide a PDF file id before publishing.");
+    if (!pdfFileId) {
+      setError("Provide a PDF file id before publishing.");
+      setToast({ tone: "error", message: "Provide a PDF file id before publishing." });
+      return;
+    }
     setBusyId(articleId);
     setError(null);
     try {
@@ -175,16 +188,22 @@ export default function PublishingDashboardPage() {
       setToast({ tone: "error", message: "Failed to publish article." });
     } finally {
       setBusyId(null);
+      setConfirmPublishArticle(null);
     }
   }
 
   if (loading) {
     return (
-      <main className="dashboard-page-content">
+      <AppShell
+        title="Loading..."
+        sectionLabel="Publishing"
+        breadcrumbItems={[{ label: "Dashboard", href: "/dashboard" }, { label: "Publishing", href: "/dashboard/publishing" }]}
+        helpTopic="Publishing Operations"
+      >
         <SkeletonBlock height={44} />
         <SkeletonBlock height={120} />
         <SkeletonBlock height={180} />
-      </main>
+      </AppShell>
     );
   }
 
@@ -202,50 +221,94 @@ export default function PublishingDashboardPage() {
       selectedJournalSlug={journalSlug}
       onJournalChange={setJournalSlug}
       quickActions={[
-        { label: "Create Journal", href: "/dashboard/journals", variant: "ghost" },
         { label: "Create Volume", onClick: createVolume, variant: "primary" },
         { label: "Create Issue", onClick: createIssue, variant: "secondary" },
+        { label: "Journal Settings", href: "/dashboard/journals", variant: "ghost" },
       ]}
       workflowSteps={[
-        { label: "Select Accepted Paper", state: "complete" },
+        { label: "Select Paper", state: "complete" },
         { label: "Verify Metadata", state: "complete" },
-        { label: "Select Volume and Issue", state: "current" },
-        { label: "Upload Final PDF", state: "upcoming" },
-        { label: "Add DOI / Pages / Article ID", state: "upcoming" },
-        { label: "Preview and Publish", state: "upcoming" },
+        { label: "Volume & Issue", state: "current" },
+        { label: "Upload PDF", state: "upcoming" },
+        { label: "Add DOI", state: "upcoming" },
+        { label: "Publish", state: "upcoming" },
       ]}
+      helpTopic="Publishing Operations"
     >
       {error ? <ErrorAlert message={error} /> : null}
 
-      <section className="dashboard-grid-three">
-        <StatCard label="Total Volumes" value={volumes.length} />
-        <StatCard label="Total Issues" value={issues.length} />
-        <StatCard label="Accepted Waiting" value={filteredArticles.length} hint="In press queue" />
-        <StatCard label="Published Articles" value={articles.filter((article) => !!article.publishedAt).length} />
-        <StatCard label="Pending PDF Uploads" value={pendingPdfUploads} />
-      </section>
-
-      <section className="card">
-        <p className="eyebrow">Workflow</p>
-        <div className="dashboard-grid-three" style={{ marginTop: 10 }}>
-          <div className="form-section"><h3>1. Select Journal</h3><p>Use journal switcher in the top bar.</p></div>
-          <div className="form-section"><h3>2. Create Volume</h3><p>Define publication year and volume number.</p></div>
-          <div className="form-section"><h3>3. Create Issue</h3><p>Create issue under selected volume.</p></div>
-          <div className="form-section"><h3>4. Assign Accepted Papers</h3><p>Map in-press articles to an issue.</p></div>
-          <div className="form-section"><h3>5. Upload PDF Assets</h3><p>Provide published file id for each article.</p></div>
-          <div className="form-section"><h3>6. Publish Article</h3><p>Publish the final article to archive.</p></div>
+      {/* Statistics */}
+      <div className="shell-stats-grid">
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">📦</span>
+          <p className="shell-stat-label">Volumes</p>
+          <p className="shell-stat-value">{volumes.length}</p>
         </div>
-      </section>
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">📰</span>
+          <p className="shell-stat-label">Issues</p>
+          <p className="shell-stat-value">{issues.length}</p>
+        </div>
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">📝</span>
+          <p className="shell-stat-label">Accepted Waiting</p>
+          <p className="shell-stat-value">{filteredArticles.length}</p>
+          <p className="shell-stat-hint">In press queue</p>
+        </div>
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">📖</span>
+          <p className="shell-stat-label">Published</p>
+          <p className="shell-stat-value">{articles.filter((a) => !!a.publishedAt).length}</p>
+        </div>
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">📄</span>
+          <p className="shell-stat-label">Pending PDFs</p>
+          <p className="shell-stat-value">{pendingPdfUploads}</p>
+          {pendingPdfUploads > 0 ? <p className="shell-stat-hint" style={{ color: "var(--warn)" }}>Upload needed</p> : null}
+        </div>
+      </div>
 
-      <section className="card">
-        <p className="eyebrow">Volume & Issue Setup</p>
-        <div className="dashboard-grid-two" style={{ marginTop: 10 }}>
-          <div className="form-section">
-            <h3>Create Volume</h3>
+      {/* Workflow steps guide */}
+      <div className="shell-section-grid">
+        <div className="shell-section-card">
+          <div className="shell-section-card-title">1️⃣ Select Journal</div>
+          <p className="muted">Use journal switcher in the top bar or sidebar.</p>
+        </div>
+        <div className="shell-section-card">
+          <div className="shell-section-card-title">2️⃣ Create Volume</div>
+          <p className="muted">Define publication year and volume number below.</p>
+        </div>
+        <div className="shell-section-card">
+          <div className="shell-section-card-title">3️⃣ Create Issue</div>
+          <p className="muted">Create issue under selected volume below.</p>
+        </div>
+        <div className="shell-section-card">
+          <div className="shell-section-card-title">4️⃣ Assign Papers</div>
+          <p className="muted">Map in-press articles to an issue in the article list.</p>
+        </div>
+        <div className="shell-section-card">
+          <div className="shell-section-card-title">5️⃣ Upload PDFs</div>
+          <p className="muted">Provide published file id for each article.</p>
+        </div>
+        <div className="shell-section-card">
+          <div className="shell-section-card-title">6️⃣ Publish</div>
+          <p className="muted">Publish the final article to archive.</p>
+        </div>
+      </div>
+
+      {/* Volume & Issue Setup */}
+      <div className="shell-form-section">
+        <div className="shell-form-section-header">
+          <h3>📦 Volume & Issue Setup <ContextualHelp text="Each journal has one volume per year. Issues are created within volumes. The suggested next year is based on existing volumes. Only one volume per year is allowed." /></h3>
+        </div>
+        <div className="shell-form-grid" style={{ marginTop: 10 }}>
+          {/* Create Volume */}
+          <div className="shell-form-section" style={{ borderLeft: "3px solid var(--accent)" }}>
+            <h3 style={{ fontSize: "0.95rem" }}>Create Volume</h3>
             <div className="field">
-              <label htmlFor="volume-year">Volume Year</label>
+              <label htmlFor="volume-year">Volume Year <span className="shell-field-required">*</span></label>
               <input id="volume-year" className="input" type="number" value={volumeYear} onChange={(event) => setVolumeYear(event.target.value)} />
-              <p className="muted">Suggested next year: {suggestedNextYear}</p>
+              <p className="shell-field-hint">Suggested next year: {suggestedNextYear}</p>
             </div>
             <div className="field">
               <label htmlFor="volume-number">Volume Number</label>
@@ -254,13 +317,14 @@ export default function PublishingDashboardPage() {
             <button className="button button-primary compact" type="button" disabled={busyId !== null || yearAlreadyExists} onClick={createVolume}>
               {busyId === "create-volume" ? "Creating..." : "Create Volume"}
             </button>
-            {yearAlreadyExists ? <p className="alert" style={{ marginTop: 8 }}>A volume already exists for {volumeYear}.</p> : null}
+            {yearAlreadyExists ? <p className="shell-field-error" style={{ marginTop: 8 }}>A volume already exists for {volumeYear}.</p> : null}
           </div>
 
-          <div className="form-section">
-            <h3>Create Issue</h3>
+          {/* Create Issue */}
+          <div className="shell-form-section" style={{ borderLeft: "3px solid #0d9488" }}>
+            <h3 style={{ fontSize: "0.95rem" }}>Create Issue <ContextualHelp text="Issues are created within volumes. Each issue has a number and optional title. Special issues can have descriptive titles." /></h3>
             <div className="field">
-              <label htmlFor="issue-volume">Parent Volume</label>
+              <label htmlFor="issue-volume">Parent Volume <span className="shell-field-required">*</span></label>
               <select id="issue-volume" className="select" value={issueVolumeId} onChange={(event) => setIssueVolumeId(event.target.value)}>
                 <option value="">Select volume</option>
                 {volumes.map((volume) => (
@@ -269,44 +333,55 @@ export default function PublishingDashboardPage() {
               </select>
             </div>
             <div className="field">
-              <label htmlFor="issue-number">Issue Number</label>
+              <label htmlFor="issue-number">Issue Number <span className="shell-field-required">*</span></label>
               <input id="issue-number" className="input" type="number" value={issueNumber} onChange={(event) => setIssueNumber(event.target.value)} />
             </div>
             <div className="field">
-              <label htmlFor="issue-title">Issue Title</label>
+              <label htmlFor="issue-title">Issue Title (optional)</label>
               <input id="issue-title" className="input" value={issueTitle} onChange={(event) => setIssueTitle(event.target.value)} placeholder="Special Issue on..." />
+              <p className="shell-field-hint">Optional. Use for special themed issues.</p>
             </div>
             <button className="button compact" disabled={busyId !== null} onClick={createIssue} type="button">
               {busyId === "create-issue" ? "Creating..." : "Create Issue"}
             </button>
           </div>
         </div>
-      </section>
+      </div>
 
-      <section className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <p className="eyebrow">Assign & Publish Articles</p>
-          <div className="field" style={{ minWidth: 220 }}>
-            <label htmlFor="article-status-filter">Article Status</label>
+      {/* Assign & Publish Articles */}
+      <div className="shell-form-section">
+        <div className="shell-form-section-header">
+          <h3>📝 Assign & Publish Articles</h3>
+          <div className="field" style={{ minWidth: 180 }}>
+            <label htmlFor="article-status-filter">Status Filter</label>
             <select id="article-status-filter" className="select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="IN_PRESS">IN_PRESS</option>
-              <option value="ALL">ALL</option>
+              <option value="IN_PRESS">In Press</option>
+              <option value="ALL">All</option>
             </select>
           </div>
         </div>
-        <ul className="list" style={{ marginTop: 10 }}>
+
+        {filteredArticles.length === 0 ? (
+          <div className="empty-state" style={{ marginTop: 12 }}>
+            <h3>No matching articles</h3>
+            <p className="muted">No articles in the current filter. Try selecting a different status or check the editorial queue for accepted papers.</p>
+          </div>
+        ) : null}
+
+        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
           {filteredArticles.map((article) => (
-            <li key={article.id} className="list-item">
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div key={article.id} className="shell-section-card">
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                 <div>
-                  <p style={{ fontWeight: 700 }}>{article.title || "(untitled article)"}</p>
-                  <p className="muted">{article.submission?.trackingNumber ?? "No tracking"}</p>
+                  <p style={{ fontWeight: 700, fontSize: "1rem" }}>{article.title || "(untitled article)"}</p>
+                  <p className="muted">{article.submission?.trackingNumber ?? "No tracking number"} • {article.status}</p>
                 </div>
-                <StatusBadge label={article.status} tone={article.status === "PUBLISHED" ? "ok" : "info"} />
+                <StatusBadge label={article.status} tone={article.status === "PUBLISHED" ? "published" : article.status === "IN_PRESS" ? "info" : "neutral"} />
               </div>
-              <div className="dashboard-grid-two" style={{ marginTop: 8 }}>
+
+              <div className="shell-form-grid" style={{ marginTop: 10 }}>
                 <div className="field">
-                  <label htmlFor={`issue-${article.id}`}>Assign Issue</label>
+                  <label htmlFor={`issue-${article.id}`}>Assign Issue <ContextualHelp text="Select the issue this article should appear in. The article must be assigned to an issue before publishing." /></label>
                   <select
                     id={`issue-${article.id}`}
                     className="select"
@@ -326,30 +401,42 @@ export default function PublishingDashboardPage() {
                   </button>
                 </div>
               </div>
-              <div className="dashboard-grid-two" style={{ marginTop: 8 }}>
+
+              <div className="shell-form-grid" style={{ marginTop: 8 }}>
                 <div className="field">
-                  <label htmlFor={`pdf-${article.id}`}>Published PDF File Id</label>
+                  <label htmlFor={`pdf-${article.id}`}>Published PDF File Id <ContextualHelp text="Enter the file ID for the final published PDF. This should be a valid file identifier from the storage system. The PDF will be served to readers." /></label>
                   <input
                     id={`pdf-${article.id}`}
                     className="input"
-                    placeholder="Paste file id"
+                    placeholder="Paste file id (e.g. abc123-def456)"
                     value={pdfFileIdByArticle[article.id] ?? ""}
                     onChange={(event) => setPdfFileIdByArticle((prev) => ({ ...prev, [article.id]: event.target.value }))}
                     disabled={busyId !== null}
                   />
                 </div>
                 <div style={{ alignSelf: "end" }}>
-                  <button className="button button-primary compact" type="button" disabled={busyId !== null} onClick={() => publish(article.id)}>
+                  <button className="button button-primary compact" type="button" disabled={busyId !== null || !pdfFileIdByArticle[article.id]?.trim()} onClick={() => setConfirmPublishArticle(article.id)}>
                     Publish Article
                   </button>
                 </div>
               </div>
-            </li>
+            </div>
           ))}
-          {filteredArticles.length === 0 ? <li className="list-item"><div className="empty-state"><p>No matching articles in current filter.</p></div></li> : null}
-        </ul>
-      </section>
+        </div>
+      </div>
+
       <ToastNotification open={!!toast} tone={toast?.tone ?? "info"} message={toast?.message ?? ""} onClose={() => setToast(null)} />
+      <ConfirmationModal
+        open={!!confirmPublishArticle}
+        title="Publish Article"
+        description={`This will make the article publicly available in the archive. This action cannot be undone. Make sure the article metadata, issue assignment, and PDF are all correct before publishing.`}
+        confirmLabel="Publish"
+        busy={busyId !== null}
+        onCancel={() => setConfirmPublishArticle(null)}
+        onConfirm={() => {
+          if (confirmPublishArticle) void publish(confirmPublishArticle);
+        }}
+      />
     </AppShell>
   );
 }

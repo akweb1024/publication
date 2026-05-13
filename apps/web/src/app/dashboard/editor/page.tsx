@@ -5,6 +5,11 @@ import Link from "next/link";
 import { apiJson } from "../../../lib/clientApi";
 import { errorMessage } from "../../../lib/errorMessage";
 import ErrorAlert from "../../../components/ErrorAlert";
+import AppShell from "../../../components/dashboard/AppShell";
+import StatusBadge from "../../../components/dashboard/StatusBadge";
+import ToastNotification from "../../../components/dashboard/ToastNotification";
+import SkeletonBlock from "../../../components/dashboard/SkeletonBlock";
+import ContextualHelp from "../../../components/dashboard/ContextualHelp";
 
 type Journal = { id: string; slug: string; title: string };
 type QueueItem = {
@@ -41,6 +46,18 @@ const STATUS_OPTIONS = [
 ] as const;
 type SortOption = "DUE_SOONEST" | "RESPOND_SOONEST" | "NEWEST" | "OLDEST";
 
+const STATUS_TONE_MAP: Record<string, "ok" | "warn" | "danger" | "info" | "neutral" | "submitted" | "under-review" | "accepted" | "rejected" | "revision" | "draft"> = {
+  SUBMITTED: "submitted",
+  TRIAGE: "info",
+  EDITOR_ASSIGNED: "info",
+  UNDER_REVIEW: "under-review",
+  REVISION_REQUESTED: "revision",
+  REVISED_SUBMITTED: "revision",
+  ACCEPTED: "accepted",
+  REJECTED: "rejected",
+  WITHDRAWN: "neutral",
+};
+
 export default function EditorialQueuePage() {
   const [journals, setJournals] = useState<Journal[]>([]);
   const [selectedJournal, setSelectedJournal] = useState("");
@@ -59,7 +76,7 @@ export default function EditorialQueuePage() {
   const [loading, setLoading] = useState(true);
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ tone: "success" | "error" | "info"; message: string } | null>(null);
 
   const selectedJournalTitle = useMemo(
     () => journals.find((journal) => journal.slug === selectedJournal)?.title ?? selectedJournal,
@@ -148,16 +165,17 @@ export default function EditorialQueuePage() {
   async function startReviewRound(submissionId: string) {
     setBusyItemId(submissionId);
     setError(null);
-    setMessage(null);
+    setToast(null);
     try {
       await apiJson(`/submissions/${submissionId}/start-review-round`, {
         method: "POST",
         body: JSON.stringify({}),
       });
       await loadQueue(selectedJournal, selectedStatus);
-      setMessage("Review round started.");
+      setToast({ tone: "success", message: "Review round started." });
     } catch (err: unknown) {
       setError(errorMessage(err) || "Failed to start review round");
+      setToast({ tone: "error", message: "Failed to start review round." });
     } finally {
       setBusyItemId(null);
     }
@@ -167,20 +185,22 @@ export default function EditorialQueuePage() {
     const assigneeUserId = assignEditorBySubmission[submissionId];
     if (!assigneeUserId) {
       setError("Select an editor before assigning.");
+      setToast({ tone: "error", message: "Select an editor before assigning." });
       return;
     }
     setBusyItemId(submissionId);
     setError(null);
-    setMessage(null);
+    setToast(null);
     try {
       await apiJson(`/submissions/${submissionId}/assign-editor`, {
         method: "POST",
         body: JSON.stringify({ userId: assigneeUserId, role: "HANDLING_EDITOR" }),
       });
       await loadQueue(selectedJournal, selectedStatus);
-      setMessage("Handling editor assigned.");
+      setToast({ tone: "success", message: "Handling editor assigned." });
     } catch (err: unknown) {
       setError(errorMessage(err) || "Failed to assign editor");
+      setToast({ tone: "error", message: "Failed to assign editor." });
     } finally {
       setBusyItemId(null);
     }
@@ -192,15 +212,17 @@ export default function EditorialQueuePage() {
     const dueAtValue = dueAtBySubmission[submissionId];
     if (!reviewerUserId) {
       setError("Select a reviewer before inviting.");
+      setToast({ tone: "error", message: "Select a reviewer before inviting." });
       return;
     }
     if (respondByValue && dueAtValue && new Date(respondByValue).getTime() > new Date(dueAtValue).getTime()) {
       setError("Respond By cannot be later than Due At.");
+      setToast({ tone: "error", message: "Respond By cannot be later than Due At." });
       return;
     }
     setBusyItemId(submissionId);
     setError(null);
-    setMessage(null);
+    setToast(null);
     try {
       let reviewRoundId = latestReviewRoundId ?? null;
       if (!reviewRoundId) {
@@ -221,9 +243,10 @@ export default function EditorialQueuePage() {
       await loadQueue(selectedJournal, selectedStatus);
       setRespondByBySubmission((prev) => ({ ...prev, [submissionId]: "" }));
       setDueAtBySubmission((prev) => ({ ...prev, [submissionId]: "" }));
-      setMessage("Reviewer invited.");
+      setToast({ tone: "success", message: "Reviewer invited." });
     } catch (err: unknown) {
       setError(errorMessage(err) || "Failed to invite reviewer");
+      setToast({ tone: "error", message: "Failed to invite reviewer." });
     } finally {
       setBusyItemId(null);
     }
@@ -234,11 +257,12 @@ export default function EditorialQueuePage() {
     const letterToAuthor = decisionLetterBySubmission[submissionId]?.trim();
     if (!letterToAuthor) {
       setError("Decision letter to author is required.");
+      setToast({ tone: "error", message: "Decision letter to author is required." });
       return;
     }
     setBusyItemId(submissionId);
     setError(null);
-    setMessage(null);
+    setToast(null);
     try {
       await apiJson(`/submissions/${submissionId}/decisions`, {
         method: "POST",
@@ -249,9 +273,10 @@ export default function EditorialQueuePage() {
         }),
       });
       await loadQueue(selectedJournal, selectedStatus);
-      setMessage("Decision recorded and author notification queued.");
+      setToast({ tone: "success", message: "Decision recorded and author notification queued." });
     } catch (err: unknown) {
       setError(errorMessage(err) || "Failed to record decision");
+      setToast({ tone: "error", message: "Failed to record decision." });
     } finally {
       setBusyItemId(null);
     }
@@ -265,39 +290,57 @@ export default function EditorialQueuePage() {
     return "Respond By must be earlier than or equal to Due At.";
   }
 
-  if (loading) return <p>Loading editorial queue...</p>;
+  if (loading) {
+    return (
+      <AppShell
+        title="Loading..."
+        sectionLabel="Editorial"
+        breadcrumbItems={[{ label: "Dashboard", href: "/dashboard" }, { label: "Editorial", href: "/dashboard/editor" }]}
+        helpTopic="Editorial Workspace"
+      >
+        <SkeletonBlock height={42} />
+        <SkeletonBlock height={120} />
+        <SkeletonBlock height={180} />
+      </AppShell>
+    );
+  }
 
   return (
-    <main className="main-stack">
-      <section className="hero">
-        <h1>Editorial Queue</h1>
-        <p>Track incoming manuscripts, filter by status, and move papers into review quickly.</p>
-        <div className="meta-row">
-          <span className="chip">{selectedJournalTitle || "No journal selected"}</span>
-          <Link href="/dashboard" className="button button-ghost compact">
-            Back to workspace
-          </Link>
-        </div>
-      </section>
+    <AppShell
+      title="Editorial Queue"
+      sectionLabel="Editorial"
+      description="Track incoming manuscripts, filter by status, assign editors and reviewers, and record editorial decisions."
+      selectedJournalLabel={selectedJournalTitle || "No journal selected"}
+      breadcrumbItems={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Editorial", href: "/dashboard/editor" },
+        { label: "Queue", href: "/dashboard/editor" },
+      ]}
+      journals={journals}
+      selectedJournalSlug={selectedJournal}
+      onJournalChange={setSelectedJournal}
+      workflowSteps={[
+        { label: "New Submission", state: "complete" },
+        { label: "Screening", state: selectedStatus === "TRIAGE" ? "current" : "complete" },
+        { label: "Assign Editor", state: selectedStatus === "EDITOR_ASSIGNED" ? "current" : "upcoming" },
+        { label: "Assign Reviewer", state: selectedStatus === "UNDER_REVIEW" ? "current" : "upcoming" },
+        { label: "Collect Reports", state: "upcoming" },
+        { label: "Make Decision", state: "upcoming" },
+      ]}
+      quickActions={[
+        { label: "Start Review Round", href: "/dashboard/editor", variant: "primary" },
+        { label: "Submissions", href: "/dashboard/submissions", variant: "ghost" },
+      ]}
+      helpTopic="Editorial Workspace"
+    >
+      {error ? <ErrorAlert message={error} /> : null}
 
-      <section className="card">
-        <p className="eyebrow">Filters</p>
-        <div className="grid">
-          <div className="field">
-            <label htmlFor="journal-filter">Journal</label>
-            <select
-              id="journal-filter"
-              className="select"
-              value={selectedJournal}
-              onChange={(event) => setSelectedJournal(event.target.value)}
-            >
-              {journals.map((journal) => (
-                <option key={journal.id} value={journal.slug}>
-                  {journal.title}
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* Filters */}
+      <div className="shell-form-section">
+        <div className="shell-form-section-header">
+          <h3>🔍 Filters & Sort <ContextualHelp text="Use these filters to narrow down the submissions queue. Select a journal, status, and sort order to find manuscripts needing action." /></h3>
+        </div>
+        <div className="shell-form-grid" style={{ marginTop: 8 }}>
           <div className="field">
             <label htmlFor="status-filter">Status</label>
             <select
@@ -328,191 +371,248 @@ export default function EditorialQueuePage() {
             </select>
           </div>
         </div>
-      </section>
+      </div>
 
-      {message ? <p style={{ color: "var(--accent-2)", fontWeight: 700 }}>{message}</p> : null}
-      {error ? <ErrorAlert message={error} /> : null}
+      {/* Stats summary */}
+      <div className="shell-stats-grid">
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">📝</span>
+          <p className="shell-stat-label">Submissions</p>
+          <p className="shell-stat-value">{sortedItems.length}</p>
+        </div>
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">👤</span>
+          <p className="shell-stat-label">Editors Available</p>
+          <p className="shell-stat-value">{editors.length}</p>
+        </div>
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">🔍</span>
+          <p className="shell-stat-label">Reviewers Available</p>
+          <p className="shell-stat-value">{reviewers.length}</p>
+        </div>
+      </div>
 
-      <section className="card">
-        <p className="eyebrow">Queue</p>
-        <h2 style={{ marginTop: 8, marginBottom: 10 }}>Submissions</h2>
-        <ul className="list">
-          {sortedItems.map((item) => (
-            (() => {
-              const deadlineError = deadlineErrorForSubmission(item.id);
-              return (
-            <li key={item.id} className="list-item">
-              <p style={{ fontWeight: 700 }}>{item.trackingNumber ?? "(pending tracking number)"}</p>
-              <p>{item.manuscriptTitle ?? "Untitled manuscript"}</p>
-              <p className="muted">
-                {item.status} • Created {new Date(item.createdAt).toLocaleString()}
-                {item.submittedAt ? ` • Submitted ${new Date(item.submittedAt).toLocaleString()}` : ""}
-                {item.latestReviewRoundNumber ? ` • Round ${item.latestReviewRoundNumber}` : ""}
-              </p>
-              <div className="meta-row" style={{ marginTop: 6 }}>
-                <span className="chip">Editors: {item.activeEditorAssignments ?? 0}</span>
-                <span className="chip">Invites: {item.reviewerInvitesCount ?? 0}</span>
-                <span className="chip">Accepted: {item.reviewerAcceptedCount ?? 0}</span>
-                <span className="chip">Pending: {item.reviewerPendingCount ?? 0}</span>
-              </div>
-              {item.nearestRespondBy || item.nearestDueAt ? (
-                <p className="muted" style={{ marginTop: 4 }}>
-                  {item.nearestRespondBy ? `Nearest respond-by: ${new Date(item.nearestRespondBy).toLocaleString()}` : ""}
-                  {item.nearestRespondBy && item.nearestDueAt ? " • " : ""}
-                  {item.nearestDueAt ? `Nearest due date: ${new Date(item.nearestDueAt).toLocaleString()}` : ""}
+      {/* Queue */}
+      <div className="shell-form-section">
+        <div className="shell-form-section-header">
+          <h3>📋 Submission Queue</h3>
+          <span className="muted">{sortedItems.length} items</span>
+        </div>
+
+        {sortedItems.length === 0 ? (
+          <div className="empty-state" style={{ marginTop: 12 }}>
+            <h3>No submissions found for selected filters.</h3>
+            <p className="muted">Try changing the status filter or selecting a different journal.</p>
+          </div>
+        ) : null}
+
+        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+          {sortedItems.map((item) => {
+            const deadlineError = deadlineErrorForSubmission(item.id);
+            return (
+              <div key={item.id} className="shell-section-card">
+                {/* Header row */}
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: "1rem" }}>{item.trackingNumber ?? "(pending tracking number)"}</p>
+                    <p>{item.manuscriptTitle ?? "Untitled manuscript"}</p>
+                  </div>
+                  <StatusBadge label={item.status} tone={STATUS_TONE_MAP[item.status] ?? "neutral"} />
+                </div>
+
+                {/* Metadata */}
+                <p className="muted" style={{ marginTop: 6 }}>
+                  Created {new Date(item.createdAt).toLocaleString()}
+                  {item.submittedAt ? ` • Submitted ${new Date(item.submittedAt).toLocaleString()}` : ""}
+                  {item.latestReviewRoundNumber ? ` • Round ${item.latestReviewRoundNumber}` : ""}
                 </p>
-              ) : null}
-              <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                <button
-                  className="button compact"
-                  onClick={() => startReviewRound(item.id)}
-                  disabled={busyItemId !== null}
-                  type="button"
-                >
-                  {busyItemId === item.id ? "Starting..." : "Start Review Round"}
-                </button>
-                <div className="grid" style={{ gridTemplateColumns: "minmax(220px,1fr) auto" }}>
-                  <select
-                    className="select"
-                    value={assignEditorBySubmission[item.id] ?? ""}
-                    onChange={(event) =>
-                      setAssignEditorBySubmission((prev) => ({ ...prev, [item.id]: event.target.value }))
-                    }
-                    disabled={busyItemId !== null}
-                  >
-                    <option value="">Select handling editor</option>
-                    {editors.map((editor) => (
-                      <option key={editor.id} value={editor.id}>
-                        {editor.name} ({editor.email})
-                      </option>
-                    ))}
-                  </select>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                  <span className="chip chip-small">Editors: {item.activeEditorAssignments ?? 0}</span>
+                  <span className="chip chip-small">Invites: {item.reviewerInvitesCount ?? 0}</span>
+                  <span className="chip chip-small">Accepted: {item.reviewerAcceptedCount ?? 0}</span>
+                  <span className="chip chip-small">Pending: {item.reviewerPendingCount ?? 0}</span>
+                </div>
+                {item.nearestRespondBy || item.nearestDueAt ? (
+                  <p className="muted" style={{ marginTop: 4 }}>
+                    {item.nearestRespondBy ? `Respond-by: ${new Date(item.nearestRespondBy).toLocaleString()}` : ""}
+                    {item.nearestRespondBy && item.nearestDueAt ? " • " : ""}
+                    {item.nearestDueAt ? `Due: ${new Date(item.nearestDueAt).toLocaleString()}` : ""}
+                  </p>
+                ) : null}
+
+                {/* Actions */}
+                <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
                   <button
-                    className="button compact"
-                    onClick={() => assignEditor(item.id)}
+                    className="button compact button-primary"
+                    onClick={() => startReviewRound(item.id)}
                     disabled={busyItemId !== null}
                     type="button"
                   >
-                    Assign Editor
+                    {busyItemId === item.id ? "Starting..." : "Start Review Round"}
                   </button>
-                </div>
-                <div className="grid" style={{ gridTemplateColumns: "minmax(220px,1fr) auto" }}>
-                  <select
-                    className="select"
-                    value={inviteReviewerBySubmission[item.id] ?? ""}
-                    onChange={(event) =>
-                      setInviteReviewerBySubmission((prev) => ({ ...prev, [item.id]: event.target.value }))
-                    }
-                    disabled={busyItemId !== null}
-                  >
-                    <option value="">Select reviewer</option>
-                    {reviewers.map((reviewer) => (
-                      <option key={reviewer.id} value={reviewer.id}>
-                        {reviewer.name} ({reviewer.email})
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="button compact"
-                    onClick={() => inviteReviewer(item.id, item.latestReviewRoundId)}
-                    disabled={busyItemId !== null || !!deadlineError}
-                    type="button"
-                  >
-                    Invite Reviewer
-                  </button>
-                </div>
-                <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-                  <div className="field">
-                    <label htmlFor={`respond-by-${item.id}`}>Respond By</label>
-                    <input
-                      id={`respond-by-${item.id}`}
-                      className="input"
-                      type="datetime-local"
-                      value={respondByBySubmission[item.id] ?? ""}
-                      onChange={(event) =>
-                        setRespondByBySubmission((prev) => ({ ...prev, [item.id]: event.target.value }))
-                      }
-                      disabled={busyItemId !== null}
-                    />
+
+                  {/* Assign Editor */}
+                  <div className="shell-form-grid">
+                    <div className="field">
+                      <label htmlFor={`editor-${item.id}`}>Handling Editor <ContextualHelp text="Select a qualified editor to handle this submission. The editor will manage the review process and make the final recommendation." /></label>
+                      <select
+                        id={`editor-${item.id}`}
+                        className="select"
+                        value={assignEditorBySubmission[item.id] ?? ""}
+                        onChange={(event) =>
+                          setAssignEditorBySubmission((prev) => ({ ...prev, [item.id]: event.target.value }))
+                        }
+                        disabled={busyItemId !== null}
+                      >
+                        <option value="">Select handling editor</option>
+                        {editors.map((editor) => (
+                          <option key={editor.id} value={editor.id}>
+                            {editor.name} ({editor.email})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ alignSelf: "end" }}>
+                      <button
+                        className="button compact"
+                        onClick={() => assignEditor(item.id)}
+                        disabled={busyItemId !== null}
+                        type="button"
+                      >
+                        Assign Editor
+                      </button>
+                    </div>
                   </div>
-                  <div className="field">
-                    <label htmlFor={`due-at-${item.id}`}>Due At</label>
-                    <input
-                      id={`due-at-${item.id}`}
-                      className="input"
-                      type="datetime-local"
-                      value={dueAtBySubmission[item.id] ?? ""}
-                      onChange={(event) => setDueAtBySubmission((prev) => ({ ...prev, [item.id]: event.target.value }))}
-                      disabled={busyItemId !== null}
-                    />
+
+                  {/* Invite Reviewer */}
+                  <div className="shell-form-grid">
+                    <div className="field">
+                      <label htmlFor={`reviewer-${item.id}`}>Reviewer <ContextualHelp text="Select a reviewer to invite. Reviewers will assess the manuscript quality and provide recommendations. Set appropriate deadlines for their response and review completion." /></label>
+                      <select
+                        id={`reviewer-${item.id}`}
+                        className="select"
+                        value={inviteReviewerBySubmission[item.id] ?? ""}
+                        onChange={(event) =>
+                          setInviteReviewerBySubmission((prev) => ({ ...prev, [item.id]: event.target.value }))
+                        }
+                        disabled={busyItemId !== null}
+                      >
+                        <option value="">Select reviewer</option>
+                        {reviewers.map((reviewer) => (
+                          <option key={reviewer.id} value={reviewer.id}>
+                            {reviewer.name} ({reviewer.email})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`respond-by-${item.id}`}>Respond By</label>
+                      <input
+                        id={`respond-by-${item.id}`}
+                        className="input"
+                        type="datetime-local"
+                        value={respondByBySubmission[item.id] ?? ""}
+                        onChange={(event) =>
+                          setRespondByBySubmission((prev) => ({ ...prev, [item.id]: event.target.value }))
+                        }
+                        disabled={busyItemId !== null}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`due-at-${item.id}`}>Due At</label>
+                      <input
+                        id={`due-at-${item.id}`}
+                        className="input"
+                        type="datetime-local"
+                        value={dueAtBySubmission[item.id] ?? ""}
+                        onChange={(event) => setDueAtBySubmission((prev) => ({ ...prev, [item.id]: event.target.value }))}
+                        disabled={busyItemId !== null}
+                      />
+                    </div>
+                    <div style={{ alignSelf: "end" }}>
+                      <button
+                        className="button compact"
+                        onClick={() => inviteReviewer(item.id, item.latestReviewRoundId)}
+                        disabled={busyItemId !== null || !!deadlineError}
+                        type="button"
+                      >
+                        Invite Reviewer
+                      </button>
+                    </div>
                   </div>
-                </div>
-                {deadlineError ? <p className="alert">{deadlineError}</p> : null}
-                <div className="card" style={{ marginTop: 6, padding: 12 }}>
-                  <p className="eyebrow">Decision</p>
-                  <div className="field" style={{ marginTop: 6 }}>
-                    <label htmlFor={`decision-type-${item.id}`}>Decision Type</label>
-                    <select
-                      id={`decision-type-${item.id}`}
-                      className="select"
-                      value={decisionBySubmission[item.id] ?? "REVISE_MAJOR"}
-                      onChange={(event) =>
-                        setDecisionBySubmission((prev) => ({ ...prev, [item.id]: event.target.value as DecisionType }))
-                      }
-                      disabled={busyItemId !== null}
-                    >
-                      <option value="DESK_REJECT">Desk reject</option>
-                      <option value="REVISE_MAJOR">Revise major</option>
-                      <option value="REVISE_MINOR">Revise minor</option>
-                      <option value="ACCEPT">Accept</option>
-                      <option value="REJECT">Reject</option>
-                    </select>
+                  {deadlineError ? <p className="shell-field-error">{deadlineError}</p> : null}
+
+                  {/* Decision */}
+                  <div className="shell-form-section" style={{ marginTop: 6, borderLeft: "3px solid #ea580c" }}>
+                    <h3 style={{ fontSize: "0.95rem" }}>⚖️ Editorial Decision <ContextualHelp text="Record your editorial decision after review. The letter to author will be sent to the manuscript author. The internal note is visible only to editorial staff." /></h3>
+                    <div className="shell-form-grid" style={{ marginTop: 8 }}>
+                      <div className="field">
+                        <label htmlFor={`decision-type-${item.id}`}>Decision Type</label>
+                        <select
+                          id={`decision-type-${item.id}`}
+                          className="select"
+                          value={decisionBySubmission[item.id] ?? "REVISE_MAJOR"}
+                          onChange={(event) =>
+                            setDecisionBySubmission((prev) => ({ ...prev, [item.id]: event.target.value as DecisionType }))
+                          }
+                          disabled={busyItemId !== null}
+                        >
+                          <option value="DESK_REJECT">Desk reject</option>
+                          <option value="REVISE_MAJOR">Revise major</option>
+                          <option value="REVISE_MINOR">Revise minor</option>
+                          <option value="ACCEPT">Accept</option>
+                          <option value="REJECT">Reject</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="field" style={{ marginTop: 8 }}>
+                      <label htmlFor={`decision-letter-${item.id}`}>Letter to Author <span className="shell-field-required">*</span></label>
+                      <textarea
+                        id={`decision-letter-${item.id}`}
+                        className="input"
+                        rows={4}
+                        value={decisionLetterBySubmission[item.id] ?? ""}
+                        onChange={(event) =>
+                          setDecisionLetterBySubmission((prev) => ({ ...prev, [item.id]: event.target.value }))
+                        }
+                        disabled={busyItemId !== null}
+                        placeholder="Share outcome and next steps with the author..."
+                      />
+                      <p className="shell-field-hint">This letter will be sent to the manuscript author. Required for all decisions.</p>
+                    </div>
+                    <div className="field" style={{ marginTop: 8 }}>
+                      <label htmlFor={`decision-note-${item.id}`}>Internal Note (optional)</label>
+                      <textarea
+                        id={`decision-note-${item.id}`}
+                        className="input"
+                        rows={2}
+                        value={decisionNoteBySubmission[item.id] ?? ""}
+                        onChange={(event) =>
+                          setDecisionNoteBySubmission((prev) => ({ ...prev, [item.id]: event.target.value }))
+                        }
+                        disabled={busyItemId !== null}
+                        placeholder="Notes visible only to editorial staff..."
+                      />
+                    </div>
+                    <div className="shell-form-actions">
+                      <button
+                        className="button button-primary compact"
+                        onClick={() => submitDecision(item.id)}
+                        disabled={busyItemId !== null || !(decisionLetterBySubmission[item.id] ?? "").trim()}
+                        type="button"
+                      >
+                        {busyItemId === item.id ? "Saving..." : "Record Decision"}
+                      </button>
+                    </div>
                   </div>
-                  <div className="field" style={{ marginTop: 8 }}>
-                    <label htmlFor={`decision-letter-${item.id}`}>Letter to Author</label>
-                    <textarea
-                      id={`decision-letter-${item.id}`}
-                      className="input"
-                      rows={4}
-                      value={decisionLetterBySubmission[item.id] ?? ""}
-                      onChange={(event) =>
-                        setDecisionLetterBySubmission((prev) => ({ ...prev, [item.id]: event.target.value }))
-                      }
-                      disabled={busyItemId !== null}
-                      placeholder="Share outcome and next steps with the author."
-                    />
-                  </div>
-                  <div className="field" style={{ marginTop: 8 }}>
-                    <label htmlFor={`decision-note-${item.id}`}>Internal Note (optional)</label>
-                    <textarea
-                      id={`decision-note-${item.id}`}
-                      className="input"
-                      rows={2}
-                      value={decisionNoteBySubmission[item.id] ?? ""}
-                      onChange={(event) =>
-                        setDecisionNoteBySubmission((prev) => ({ ...prev, [item.id]: event.target.value }))
-                      }
-                      disabled={busyItemId !== null}
-                    />
-                  </div>
-                  <button
-                    className="button compact"
-                    style={{ marginTop: 10 }}
-                    onClick={() => submitDecision(item.id)}
-                    disabled={busyItemId !== null || !(decisionLetterBySubmission[item.id] ?? "").trim()}
-                    type="button"
-                  >
-                    {busyItemId === item.id ? "Saving..." : "Record Decision"}
-                  </button>
                 </div>
               </div>
-            </li>
-              );
-            })()
-          ))}
-          {sortedItems.length === 0 ? <li className="list-item">No submissions found for selected filters.</li> : null}
-        </ul>
-      </section>
-    </main>
+            );
+          })}
+        </div>
+      </div>
+
+      <ToastNotification open={!!toast} tone={toast?.tone ?? "info"} message={toast?.message ?? ""} onClose={() => setToast(null)} />
+    </AppShell>
   );
 }

@@ -9,6 +9,7 @@ import StatusBadge from "../../../components/dashboard/StatusBadge";
 import ToastNotification from "../../../components/dashboard/ToastNotification";
 import SkeletonBlock from "../../../components/dashboard/SkeletonBlock";
 import ConfirmationModal from "../../../components/dashboard/ConfirmationModal";
+import ContextualHelp from "../../../components/dashboard/ContextualHelp";
 
 type Journal = {
   id: string;
@@ -319,11 +320,11 @@ export default function JournalSettingsPage() {
 
   if (loading) {
     return (
-      <main className="dashboard-page-content">
+      <AppShell title="Loading..." breadcrumbItems={[{ label: "Dashboard", href: "/dashboard" }, { label: "Journals", href: "/dashboard/journals" }]} helpTopic="Journal Settings">
         <SkeletonBlock height={42} />
         <SkeletonBlock height={170} />
         <SkeletonBlock height={220} />
-      </main>
+      </AppShell>
     );
   }
 
@@ -331,12 +332,12 @@ export default function JournalSettingsPage() {
     <AppShell
       title="Journal Settings"
       sectionLabel="Admin"
-      description="Configure journal profile, branding, metadata, policy keys, and role assignments."
+      description="Configure journal profile, branding, ISSN metadata, policy keys, and role assignments."
       selectedJournalLabel={selectedJournal?.title ?? "Select a journal"}
       breadcrumbItems={[
         { label: "Dashboard", href: "/dashboard" },
-        { label: "Publishing", href: "/dashboard/publishing" },
-        { label: "Journal Settings", href: "/dashboard/journals" },
+        { label: "Journals", href: "/dashboard/journals" },
+        { label: "Settings", href: "/dashboard/journals" },
       ]}
       journals={journals}
       selectedJournalSlug={journalSlug}
@@ -347,12 +348,12 @@ export default function JournalSettingsPage() {
         { label: "Storage", href: "/dashboard/storage", variant: "ghost" },
       ]}
       workflowSteps={[
-        { label: "Basic Journal Information", state: "complete" },
-        { label: "ISSN / eISSN Details", state: "current" },
-        { label: "Subject Area & Scope", state: "upcoming" },
-        { label: "Editorial Board", state: "upcoming" },
-        { label: "Policies & Branding", state: "upcoming" },
-        { label: "Publish Journal Profile", state: "upcoming" },
+        { label: "Basic Info", state: completionScore >= 25 ? "complete" : "current" },
+        { label: "ISSN Details", state: completionScore >= 50 ? "complete" : completionScore >= 25 ? "current" : "upcoming" },
+        { label: "Focus & Scope", state: completionScore >= 75 ? "complete" : completionScore >= 50 ? "current" : "upcoming" },
+        { label: "Editorial Board", state: completionScore >= 90 ? "complete" : completionScore >= 75 ? "current" : "upcoming" },
+        { label: "Policies & Branding", state: completionScore >= 95 ? "complete" : completionScore >= 90 ? "current" : "upcoming" },
+        { label: "Publish Profile", state: completionScore >= 100 ? "current" : "upcoming" },
       ]}
       actions={
         <StatusBadge
@@ -360,124 +361,159 @@ export default function JournalSettingsPage() {
           tone={completionScore >= 90 ? "ok" : "warn"}
         />
       }
+      helpTopic="Journal Settings"
     >
+      {/* Progress bar */}
+      <div className="shell-progress-bar" aria-label="Journal setup progress">
+        <div className="shell-progress-fill" style={{ width: `${completionScore}%` }} />
+      </div>
+
       {error ? <ErrorAlert message={error} /> : null}
       {sectionLoading ? (
-        <section className="card">
+        <div className="shell-form-section">
           <SkeletonBlock height={24} />
           <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
             <SkeletonBlock height={34} />
             <SkeletonBlock height={34} />
             <SkeletonBlock height={80} />
           </div>
-        </section>
+        </div>
       ) : null}
 
-      <section className="card">
-        <p className="eyebrow">Create Journal</p>
-        <div className="dashboard-grid-two" style={{ marginTop: 10 }}>
+      {/* Create Journal Section */}
+      <div className="shell-form-section">
+        <div className="shell-form-section-header">
+          <h3>📝 Create Journal</h3>
+        </div>
+        <div className="shell-form-grid" style={{ marginTop: 10 }}>
           <div className="field">
-            <label htmlFor="new-journal-slug">Slug</label>
-            <input id="new-journal-slug" className="input" value={newSlug} onChange={(event) => setNewSlug(event.target.value)} placeholder="cardiology-research" disabled={saving} />
+            <label htmlFor="new-journal-slug">Slug <span className="shell-field-required">*</span></label>
+            <input id="new-journal-slug" className="input" value={newSlug} onChange={(event) => setNewSlug(event.target.value)} placeholder="e.g. cardiology-research" disabled={saving} />
+            <p className="shell-field-hint">Lowercase, hyphen-separated. Used in URLs and public pages.</p>
           </div>
           <div className="field">
-            <label htmlFor="new-journal-title">Title</label>
-            <input id="new-journal-title" className="input" value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="Journal of Cardiology Research" disabled={saving} />
+            <label htmlFor="new-journal-title">Title <span className="shell-field-required">*</span></label>
+            <input id="new-journal-title" className="input" value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="e.g. Journal of Cardiology Research" disabled={saving} />
           </div>
           <div className="field">
             <label htmlFor="new-journal-timezone">Timezone</label>
             <input id="new-journal-timezone" className="input" value={newTimezone} onChange={(event) => setNewTimezone(event.target.value)} placeholder="UTC" disabled={saving} />
+            <p className="shell-field-hint">Default timezone for publication dates and scheduling.</p>
           </div>
-          <div className="field">
+          <div className="field shell-form-grid-full">
             <label htmlFor="new-journal-description">Description</label>
-            <textarea id="new-journal-description" className="input" rows={3} value={newDescription} onChange={(event) => setNewDescription(event.target.value)} disabled={saving} />
+            <textarea id="new-journal-description" className="input" rows={3} value={newDescription} onChange={(event) => setNewDescription(event.target.value)} disabled={saving} placeholder="Brief description of the journal scope and purpose" />
           </div>
         </div>
-      </section>
+      </div>
 
-      <section className="card">
-        <p className="eyebrow">Profile Form</p>
-        <div className="form-section" style={{ marginTop: 10 }}>
-          <h3>Basic Information</h3>
-          <div className="dashboard-grid-two">
+      {/* Profile Form */}
+      <div className="shell-form-section">
+        <div className="shell-form-section-header">
+          <h3>📋 Profile Form</h3>
+          <StatusBadge label={`Progress ${completionScore}%`} tone={completionScore >= 80 ? "ok" : "warn"} />
+        </div>
+
+        {/* Basic Information */}
+        <div className="shell-form-section" style={{ marginTop: 10, borderLeft: "3px solid var(--accent)" }}>
+          <h3 style={{ fontSize: "0.95rem" }}>Basic Information</h3>
+          <div className="shell-form-grid">
             <div className="field">
-              <label htmlFor="title">Journal Title</label>
+              <label htmlFor="title">Journal Title <span className="shell-field-required">*</span></label>
               <input id="title" className="input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Journal of ..." />
-              {titleError ? <p className="alert">{titleError}</p> : null}
+              {titleError ? <p className="shell-field-error">{titleError}</p> : null}
             </div>
             <div className="field">
-              <label htmlFor="timezone">Timezone</label>
+              <label htmlFor="timezone">Timezone <span className="shell-field-required">*</span></label>
               <input id="timezone" className="input" value={timezone} onChange={(event) => setTimezone(event.target.value)} placeholder="UTC" />
-              {timezoneError ? <p className="alert">{timezoneError}</p> : null}
+              {timezoneError ? <p className="shell-field-error">{timezoneError}</p> : null}
+              <p className="shell-field-hint">Standard timezone identifier (e.g. UTC, America/New_York).</p>
             </div>
           </div>
-          <div className="field">
+          <div className="field shell-form-grid-full">
             <label htmlFor="description">Description</label>
-            <textarea id="description" className="input" rows={4} value={description} onChange={(event) => setDescription(event.target.value)} />
+            <textarea id="description" className="input" rows={4} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="A brief summary of the journal purpose and scope" />
           </div>
         </div>
 
-        <div className="form-section" style={{ marginTop: 10 }}>
-          <h3>ISSN Details</h3>
-          <div className="dashboard-grid-two">
+        {/* ISSN Details */}
+        <div className="shell-form-section" style={{ marginTop: 10, borderLeft: "3px solid #0d9488" }}>
+          <h3 style={{ fontSize: "0.95rem" }}>ISSN Details <ContextualHelp text="ISSN (International Standard Serial Number) is a unique 8-digit identifier for serial publications. Format: 4 digits, hyphen, 4 digits (last digit can be X). Example: 1234-5678" /></h3>
+          <div className="shell-form-grid">
             <div className="field">
-              <label htmlFor="issn-print">ISSN (Print)</label>
+              <label htmlFor="issn-print">ISSN (Print) <ContextualHelp text="Print ISSN identifies the physical printed version of the journal. Enter in 1234-5678 format." /></label>
               <input id="issn-print" className="input" value={issnPrint} onChange={(event) => setIssnPrint(formatIssnInput(event.target.value))} placeholder="1234-5678" />
-              {issnPrintError ? <p className="alert">{issnPrintError}</p> : null}
+              {issnPrintError ? <p className="shell-field-error">{issnPrintError}</p> : null}
+              <p className="shell-field-hint">Auto-formatted as you type. Example: 1234-5678</p>
             </div>
             <div className="field">
-              <label htmlFor="issn-online">ISSN (Online)</label>
+              <label htmlFor="issn-online">ISSN (Online/eISSN) <ContextualHelp text="Online ISSN (eISSN) identifies the electronic/digital version. Same format as print ISSN." /></label>
               <input id="issn-online" className="input" value={issnOnline} onChange={(event) => setIssnOnline(formatIssnInput(event.target.value))} placeholder="1234-5678" />
-              {issnOnlineError ? <p className="alert">{issnOnlineError}</p> : null}
+              {issnOnlineError ? <p className="shell-field-error">{issnOnlineError}</p> : null}
+              <p className="shell-field-hint">Auto-formatted. Last digit may be X (check digit).</p>
             </div>
           </div>
         </div>
 
-        <div className="form-section" style={{ marginTop: 10 }}>
-          <h3>Journal Branding</h3>
-          <div className="field">
+        {/* Journal Branding */}
+        <div className="shell-form-section" style={{ marginTop: 10, borderLeft: "3px solid #ea580c" }}>
+          <h3 style={{ fontSize: "0.95rem" }}>Journal Branding <ContextualHelp text="Branding JSON controls the visual appearance of your journal's public pages. Use it to set colors, logos, and layout preferences." /></h3>
+          <div className="field shell-form-grid-full">
             <label htmlFor="branding-json">Branding JSON</label>
-            <textarea id="branding-json" className="input" rows={10} value={brandingJsonText} onChange={(event) => setBrandingJsonText(event.target.value)} />
-            {brandingJsonError ? <p className="alert">Invalid JSON: {brandingJsonError}</p> : null}
+            <textarea id="branding-json" className="input" rows={8} value={brandingJsonText} onChange={(event) => setBrandingJsonText(event.target.value)} placeholder='{"primaryColor": "#4f46e5", "logoUrl": "/logo.png"}' />
+            {brandingJsonError ? <p className="shell-field-error">Invalid JSON: {brandingJsonError}</p> : null}
+            <p className="shell-field-hint">JSON object for custom branding. Use keys like primaryColor, logoUrl, headerStyle.</p>
           </div>
         </div>
 
-        <div className="form-section" style={{ marginTop: 10 }}>
-          <h3>Policy Keys</h3>
-          <div className="field">
-            <label htmlFor="required-policy-keys">Required Policy Keys</label>
+        {/* Policy Keys */}
+        <div className="shell-form-section" style={{ marginTop: 10, borderLeft: "3px solid var(--accent)" }}>
+          <h3 style={{ fontSize: "0.95rem" }}>Policy Keys <span className="shell-field-required">*</span> <ContextualHelp text="Required policy keys define which policies authors must accept before submitting. Each key maps to a policy version (e.g. peer-review, ethics, plagiarism)." /></h3>
+          <div className="field shell-form-grid-full">
+            <label htmlFor="required-policy-keys">Required Policy Keys (comma-separated)</label>
             <input id="required-policy-keys" className="input" value={requiredPolicyKeysText} onChange={(event) => setRequiredPolicyKeysText(event.target.value)} placeholder="peer-review, ethics, plagiarism" />
-            {requiredPolicyKeysError ? <p className="alert">{requiredPolicyKeysError}</p> : null}
+            {requiredPolicyKeysError ? <p className="shell-field-error">{requiredPolicyKeysError}</p> : null}
+            <p className="shell-field-hint">At least one required policy key. Comma-separated list.</p>
           </div>
         </div>
 
-        <div className="form-section" style={{ marginTop: 10 }}>
-          <h3>SEO & Metadata</h3>
-          <div className="dashboard-grid-two">
+        {/* SEO & Metadata */}
+        <div className="shell-form-section" style={{ marginTop: 10, borderLeft: "3px solid #2563eb" }}>
+          <h3 style={{ fontSize: "0.95rem" }}>SEO & Metadata</h3>
+          <div className="shell-form-grid">
             <div className="field">
               <label htmlFor="meta-title">Meta Title (preview)</label>
               <input id="meta-title" className="input" value={metaTitle} onChange={(event) => setMetaTitle(event.target.value)} placeholder="Journal title for SERP" />
+              <p className="shell-field-hint">Title shown in search engine results. Aim for 10+ characters.</p>
             </div>
             <div className="field">
               <label htmlFor="meta-description">Meta Description (preview)</label>
               <textarea id="meta-description" className="input" rows={3} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} placeholder="Short summary used for search snippets" />
+              <p className="shell-field-hint">Description shown in search results. Aim for 20+ characters.</p>
             </div>
           </div>
         </div>
 
-        <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {/* Save button */}
+        <div className="shell-form-actions">
+          <button className="button button-ghost compact" type="button" onClick={() => journalSlug && loadJournal(journalSlug)} disabled={saving}>
+            Reset
+          </button>
           <button className="button button-primary compact" type="button" disabled={!canSave} onClick={save}>
             {saving ? "Saving..." : "Save Settings"}
           </button>
-          <StatusBadge label={`Progress ${completionScore}%`} tone={completionScore >= 80 ? "ok" : "warn"} />
         </div>
-      </section>
+      </div>
 
-      <section className="card">
-        <p className="eyebrow">Access & Role Assignment</p>
-        <div className="dashboard-grid-three" style={{ marginTop: 10 }}>
+      {/* Access & Role Assignment */}
+      <div className="shell-form-section">
+        <div className="shell-form-section-header">
+          <h3>👥 Access & Role Assignment</h3>
+          <ContextualHelp text="Assign journal roles to users by email. Roles determine what each user can access in this journal. Higher-tier roles inherit lower-tier capabilities." />
+        </div>
+        <div className="shell-form-grid" style={{ marginTop: 10 }}>
           <div className="field">
-            <label htmlFor="role-email">User Email</label>
+            <label htmlFor="role-email">User Email <span className="shell-field-required">*</span></label>
             <input id="role-email" className="input" value={roleEmail} onChange={(event) => setRoleEmail(event.target.value)} placeholder="user@example.com" disabled={saving} />
           </div>
           <div className="field">
@@ -494,7 +530,7 @@ export default function JournalSettingsPage() {
         </div>
 
         {roleName === "SUBSCRIBER" ? (
-          <div className="dashboard-grid-two" style={{ marginTop: 8 }}>
+          <div className="shell-form-grid" style={{ marginTop: 8 }}>
             <div className="field">
               <label htmlFor="subscriber-start-at">Subscription Start</label>
               <input id="subscriber-start-at" className="input" type="datetime-local" value={subscriberStartAt} onChange={(event) => setSubscriberStartAt(event.target.value)} disabled={saving} />
@@ -506,31 +542,45 @@ export default function JournalSettingsPage() {
           </div>
         ) : null}
 
-        <ul className="list" style={{ marginTop: 12 }}>
-          {roleAssignments.map((assignment) => (
-            <li className="list-item" key={assignment.id}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-                <div>
-                  <p style={{ fontWeight: 700 }}>{assignment.user.name} - {assignment.user.email}</p>
-                  <p className="muted">{assignment.role}</p>
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <StatusBadge label={assignment.role} tone={assignment.role === "JOURNAL_ADMIN" ? "info" : "neutral"} />
-                  <button className="button button-danger compact" type="button" disabled={saving} onClick={() => setRemoveRoleTarget({ email: assignment.user.email, role: assignment.role })}>Remove</button>
-                </div>
-              </div>
-            </li>
-          ))}
-          {roleAssignments.length === 0 ? <li className="list-item"><div className="empty-state"><p>No role assignments yet.</p></div></li> : null}
-        </ul>
-      </section>
+        {/* Role assignments table */}
+        <div className="shell-table-wrap" style={{ marginTop: 14 }}>
+          <table className="shell-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {roleAssignments.map((assignment) => (
+                <tr key={assignment.id}>
+                  <td style={{ fontWeight: 600 }}>{assignment.user.name}</td>
+                  <td className="muted">{assignment.user.email}</td>
+                  <td><StatusBadge label={assignment.role} tone={assignment.role === "JOURNAL_ADMIN" ? "info" : "neutral"} /></td>
+                  <td>
+                    <button className="button button-danger compact" type="button" disabled={saving} onClick={() => setRemoveRoleTarget({ email: assignment.user.email, role: assignment.role })}>
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {roleAssignments.length === 0 ? (
+                <tr><td colSpan={4} className="shell-table-empty">No role assignments yet. Assign a role above to get started.</td></tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <ToastNotification open={!!toast} tone={toast?.tone ?? "info"} message={toast?.message ?? ""} onClose={() => setToast(null)} />
       <ConfirmationModal
         open={!!removeRoleTarget}
         title="Remove Role Assignment"
         description={
           removeRoleTarget
-            ? `This will remove ${removeRoleTarget.role} from ${removeRoleTarget.email}. Continue?`
+            ? `This will remove ${removeRoleTarget.role} from ${removeRoleTarget.email}. The user will lose access to this journal's ${removeRoleTarget.role} capabilities. Continue?`
             : ""
         }
         confirmLabel="Remove Role"

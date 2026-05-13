@@ -9,6 +9,7 @@ import StatusBadge from "../../../components/dashboard/StatusBadge";
 import ToastNotification from "../../../components/dashboard/ToastNotification";
 import SkeletonBlock from "../../../components/dashboard/SkeletonBlock";
 import ConfirmationModal from "../../../components/dashboard/ConfirmationModal";
+import ContextualHelp from "../../../components/dashboard/ContextualHelp";
 
 type Journal = { id: string; slug: string; title: string };
 type StorageConfig = {
@@ -167,7 +168,7 @@ export default function StorageSettingsPage() {
 
   async function onJournalChange(nextSlug: string) {
     setJournalSlug(nextSlug);
-        setError(null);
+    setError(null);
     try {
       await loadJournalConfig(nextSlug);
     } catch (err: unknown) {
@@ -179,7 +180,7 @@ export default function StorageSettingsPage() {
     if (!journalSlug) return;
     setSaving(true);
     setError(null);
-        try {
+    try {
       await apiJson(`/journals/${encodeURIComponent(journalSlug)}/storage-config`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -201,6 +202,7 @@ export default function StorageSettingsPage() {
       await loadJournalConfig(journalSlug);
     } catch (err: unknown) {
       setError(errorMessage(err) || "Failed to save storage configuration");
+      setToast({ tone: "error", message: "Failed to save storage configuration." });
     } finally {
       setSaving(false);
     }
@@ -210,11 +212,12 @@ export default function StorageSettingsPage() {
     if (!journalSlug) return;
     if (!externalEndpoint.trim() || !externalRegion.trim() || !externalBucket.trim() || !accessKeyId.trim() || !secretAccessKey.trim()) {
       setError("To test connection, provide endpoint, region, bucket, access key, and secret key.");
+      setToast({ tone: "error", message: "Provide all external storage fields before testing." });
       return;
     }
     setTesting(true);
     setError(null);
-        try {
+    try {
       await apiJson(`/journals/${encodeURIComponent(journalSlug)}/storage-config/test`, {
         method: "POST",
         body: JSON.stringify({
@@ -232,6 +235,7 @@ export default function StorageSettingsPage() {
       setToast({ tone: "success", message: "External storage connection test succeeded." });
     } catch (err: unknown) {
       setError(errorMessage(err) || "External storage connection test failed");
+      setToast({ tone: "error", message: "Connection test failed." });
     } finally {
       setTesting(false);
     }
@@ -241,7 +245,7 @@ export default function StorageSettingsPage() {
     if (!journalSlug || !simulationKey.trim()) return;
     setSimulating(true);
     setError(null);
-        try {
+    try {
       const result = await apiJson<SimulationResult>(`/journals/${encodeURIComponent(journalSlug)}/storage-config/simulate`, {
         method: "POST",
         body: JSON.stringify({ key: simulationKey.trim() }),
@@ -259,7 +263,7 @@ export default function StorageSettingsPage() {
     if (!journalSlug) return;
     setSavingDataSync(true);
     setError(null);
-        try {
+    try {
       await apiJson(`/journals/${encodeURIComponent(journalSlug)}/data-sync-config`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -272,6 +276,7 @@ export default function StorageSettingsPage() {
       await loadJournalConfig(journalSlug);
     } catch (err: unknown) {
       setError(errorMessage(err) || "Failed to save external database sync settings");
+      setToast({ tone: "error", message: "Failed to save sync settings." });
     } finally {
       setSavingDataSync(false);
     }
@@ -281,7 +286,7 @@ export default function StorageSettingsPage() {
     if (!journalSlug) return;
     setTestingDataSync(true);
     setError(null);
-        try {
+    try {
       await apiJson(`/journals/${encodeURIComponent(journalSlug)}/data-sync-config/test`, {
         method: "POST",
         body: JSON.stringify({ externalDatabaseUrl: externalDbUrl.trim() || undefined }),
@@ -290,6 +295,7 @@ export default function StorageSettingsPage() {
       await loadJournalConfig(journalSlug);
     } catch (err: unknown) {
       setError(errorMessage(err) || "External database connection test failed");
+      setToast({ tone: "error", message: "Database connection test failed." });
     } finally {
       setTestingDataSync(false);
     }
@@ -299,13 +305,10 @@ export default function StorageSettingsPage() {
     if (!journalSlug) return;
     setRunningDataSync(true);
     setError(null);
-        try {
+    try {
       const result = await apiJson<{ ok: true; runId: string; recordsSynced: number }>(
         `/journals/${encodeURIComponent(journalSlug)}/data-sync/sync-now`,
-        {
-          method: "POST",
-          body: JSON.stringify({ externalDatabaseUrl: externalDbUrl.trim() || undefined }),
-        }
+        { method: "POST", body: JSON.stringify({ externalDatabaseUrl: externalDbUrl.trim() || undefined }) }
       );
       setToast({ tone: "success", message: `Data sync completed. Synced ${result.recordsSynced} records.` });
       await loadJournalConfig(journalSlug);
@@ -338,70 +341,104 @@ export default function StorageSettingsPage() {
 
   if (loading) {
     return (
-      <main className="dashboard-page-content">
+      <AppShell title="Loading..." sectionLabel="Storage" breadcrumbItems={[{ label: "Dashboard", href: "/dashboard" }, { label: "Storage", href: "/dashboard/storage" }]} helpTopic="Storage Settings">
         <SkeletonBlock height={42} />
         <SkeletonBlock height={150} />
         <SkeletonBlock height={240} />
-      </main>
+      </AppShell>
     );
   }
 
   return (
     <AppShell
       title="Storage Settings"
-      sectionLabel="Storage"
+      sectionLabel="Storage & Sync"
       description="Manage routing policy, external object storage credentials, and external database sync operations."
       selectedJournalLabel={selectedJournalTitle}
       breadcrumbItems={[
         { label: "Dashboard", href: "/dashboard" },
-        { label: "Publishing", href: "/dashboard/publishing" },
-        { label: "Storage Settings", href: "/dashboard/storage" },
+        { label: "Storage & Sync", href: "/dashboard/storage" },
       ]}
       journals={journals}
       selectedJournalSlug={journalSlug}
       onJournalChange={onJournalChange}
       quickActions={[
-        { label: "Save Settings", onClick: saveConfig, variant: "primary" },
+        { label: "Save Storage", onClick: saveConfig, variant: "primary" },
         { label: "Test Connection", onClick: testConnection, variant: "secondary" },
-        { label: "Run Sync Now", onClick: () => setConfirmSyncOpen(true), variant: "ghost" },
+        { label: "Run Sync", onClick: () => setConfirmSyncOpen(true), variant: "ghost" },
       ]}
       workflowSteps={[
         { label: "Select Journal", state: "complete" },
-        { label: "Configure Storage Method", state: "current" },
-        { label: "Configure External Database", state: "current" },
+        { label: "Configure Storage", state: "current" },
+        { label: "Configure External DB", state: "upcoming" },
         { label: "Test Connection", state: "upcoming" },
-        { label: "Run Sync", state: "upcoming" },
-        { label: "Review Sync History", state: "upcoming" },
+        { label: "Save & Run Sync", state: "upcoming" },
+        { label: "Review History", state: "upcoming" },
       ]}
       actions={<StatusBadge label={syncStatusLabel()} tone={syncStatusTone()} />}
+      helpTopic="Storage Settings"
     >
       {error ? <ErrorAlert message={error} /> : null}
 
-      <section className="card">
-        <p className="eyebrow">External Database Sync</p>
-        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      {/* Status overview */}
+      <div className="shell-stats-grid">
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">💾</span>
+          <p className="shell-stat-label">Default Target</p>
+          <p className="shell-stat-value">{defaultTarget}</p>
+        </div>
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">☁️</span>
+          <p className="shell-stat-label">Provider</p>
+          <p className="shell-stat-value">{externalProvider}</p>
+        </div>
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">🔒</span>
+          <p className="shell-stat-label">Secrets</p>
+          <p className="shell-stat-value">{hasSecrets ? "Saved" : "Not Set"}</p>
+          {hasSecrets ? <p className="shell-stat-hint">Updated: {secretUpdatedAt ?? "unknown"}</p> : null}
+        </div>
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">🔄</span>
+          <p className="shell-stat-label">Sync Status</p>
+          <p className="shell-stat-value">{syncStatusLabel()}</p>
           <StatusBadge label={syncStatusLabel()} tone={syncStatusTone()} />
-          <StatusBadge label={dataSyncValidated ? "Validated" : "Unvalidated"} tone={dataSyncValidated ? "ok" : "warn"} />
-          <StatusBadge label={hasExternalDbUrl ? "URL Configured" : "URL Missing"} tone={hasExternalDbUrl ? "info" : "warn"} />
+        </div>
+        <div className="shell-stat-card">
+          <span className="shell-stat-icon">📋</span>
+          <p className="shell-stat-label">Sync Runs</p>
+          <p className="shell-stat-value">{dataSyncRuns.length}</p>
+        </div>
+      </div>
+
+      {/* External Database Sync */}
+      <div className="shell-form-section">
+        <div className="shell-form-section-header">
+          <h3>🔄 External Database Sync <ContextualHelp text="External database sync allows you to push journal data to an external PostgreSQL database for integration with other systems. Enable sync, configure the connection URL, test the connection, then run manual or automatic syncs." /></h3>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <StatusBadge label={syncStatusLabel()} tone={syncStatusTone()} />
+            <StatusBadge label={dataSyncValidated ? "Validated" : "Unvalidated"} tone={dataSyncValidated ? "ok" : "warn"} />
+            <StatusBadge label={hasExternalDbUrl ? "URL Configured" : "URL Missing"} tone={hasExternalDbUrl ? "info" : "warn"} />
+          </div>
         </div>
 
-        <div className="dashboard-grid-three" style={{ marginTop: 10 }}>
+        <div className="shell-form-grid" style={{ marginTop: 10 }}>
           <div className="field">
             <label htmlFor="data-sync-enabled">Sync Enabled</label>
             <select id="data-sync-enabled" className="select" value={dataSyncEnabled ? "true" : "false"} onChange={(e) => setDataSyncEnabled(e.target.value === "true")}>
-              <option value="false">false</option>
-              <option value="true">true</option>
+              <option value="false">Disabled</option>
+              <option value="true">Enabled</option>
             </select>
           </div>
           <div className="field">
-            <label htmlFor="data-sync-auto">Auto Sync</label>
+            <label htmlFor="data-sync-auto">Auto Sync <ContextualHelp text="When enabled, sync will run automatically on a schedule. Otherwise, you must run it manually." /></label>
             <select id="data-sync-auto" className="select" value={dataSyncAuto ? "true" : "false"} onChange={(e) => setDataSyncAuto(e.target.value === "true")}>
-              <option value="false">false</option>
-              <option value="true">true</option>
+              <option value="false">Disabled</option>
+              <option value="true">Enabled</option>
             </select>
           </div>
-          <div className="field">
-            <label htmlFor="external-db-url">External Postgres URL</label>
+          <div className="field shell-form-grid-full">
+            <label htmlFor="external-db-url">External Postgres URL <ContextualHelp text="Full PostgreSQL connection string including database name and optional schema. Format: postgresql://user:password@host:5432/dbname?schema=public. Never share this URL — it contains credentials." /></label>
             <input
               id="external-db-url"
               className="input"
@@ -410,7 +447,7 @@ export default function StorageSettingsPage() {
               onChange={(e) => setExternalDbUrl(e.target.value)}
               placeholder="postgresql://user:pass@host:5432/dbname?schema=public"
             />
-            <p className="muted">Use full Postgres URL including database name and optional schema query.</p>
+            <p className="shell-field-hint">Secure format: postgresql://user:password@host:5432/dbname?schema=public</p>
           </div>
         </div>
 
@@ -419,28 +456,34 @@ export default function StorageSettingsPage() {
         </p>
         {dataSyncLastSyncMessage ? <p className="muted">Last Message: {dataSyncLastSyncMessage}</p> : null}
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+        <div className="shell-form-actions">
           <button className="button button-primary compact" disabled={savingDataSync} onClick={saveDataSyncConfig}>
-            {savingDataSync ? "Saving..." : "Save Settings"}
+            {savingDataSync ? "Saving..." : "Save Sync Settings"}
           </button>
           <button className="button compact" disabled={testingDataSync} onClick={testDataSyncConnection}>
-            {testingDataSync ? "Testing..." : "Test Connection"}
+            {testingDataSync ? "Testing..." : "Test DB Connection"}
           </button>
           <button className="button button-ghost compact" disabled={runningDataSync} onClick={() => setConfirmSyncOpen(true)}>
             {runningDataSync ? "Syncing..." : "Run Sync Now"}
           </button>
         </div>
-      </section>
+      </div>
 
-      <section className="card">
-        <p className="eyebrow">Sync History</p>
+      {/* Sync History */}
+      <div className="shell-form-section">
+        <div className="shell-form-section-header">
+          <h3>📋 Sync History</h3>
+          <span className="muted">{dataSyncRuns.length} runs</span>
+        </div>
+
         {dataSyncRuns.length === 0 ? (
           <div className="empty-state" style={{ marginTop: 12 }}>
-            <p>No sync runs yet. Save configuration and run your first sync.</p>
+            <h3>No sync runs yet</h3>
+            <p className="muted">Save your sync configuration and run your first sync to see history here.</p>
           </div>
         ) : (
-          <div style={{ marginTop: 10, overflowX: "auto" }}>
-            <table className="sync-history-table">
+          <div className="shell-table-wrap" style={{ marginTop: 10 }}>
+            <table className="shell-table">
               <thead>
                 <tr>
                   <th>Date & Time</th>
@@ -467,18 +510,23 @@ export default function StorageSettingsPage() {
             </table>
           </div>
         )}
-      </section>
+      </div>
 
-      <section className="card">
-        <p className="eyebrow">Storage Routing Policy</p>
-        <div className="dashboard-grid-three" style={{ marginTop: 10 }}>
+      {/* Storage Routing Policy */}
+      <div className="shell-form-section">
+        <div className="shell-form-section-header">
+          <h3>🛣️ Storage Routing Policy <ContextualHelp text="The routing policy determines where files are stored. Files matching an external prefix go to the external provider; all others use local storage. The default target sets the fallback when no prefix matches." /></h3>
+        </div>
+        <div className="shell-form-grid" style={{ marginTop: 10 }}>
           <div className="field">
             <label htmlFor="local-prefix">Local Prefix</label>
             <input id="local-prefix" className="input" value={localPathPrefix} onChange={(e) => setLocalPathPrefix(e.target.value)} placeholder="system" />
+            <p className="shell-field-hint">Prefix for files stored on the local filesystem.</p>
           </div>
           <div className="field">
-            <label htmlFor="external-prefixes">External Prefixes</label>
-            <input id="external-prefixes" className="input" value={externalPathPrefixes} onChange={(e) => setExternalPathPrefixes(e.target.value)} placeholder="submissions, uploads" />
+            <label htmlFor="external-prefixes">External Prefixes <ContextualHelp text="Comma-separated list of path prefixes that should route to external storage. Files with paths starting with these prefixes will be stored in the configured external provider." /></label>
+            <input id="external-prefixes" className="input" value={externalPathPrefixes} onChange={(e) => setExternalPathPrefixes(e.target.value)} placeholder="submissions, uploads, manuscripts" />
+            <p className="shell-field-hint">Comma-separated. Files matching these prefixes go to external storage.</p>
           </div>
           <div className="field">
             <label htmlFor="default-target">Default Target</label>
@@ -486,13 +534,17 @@ export default function StorageSettingsPage() {
               <option value="LOCAL">LOCAL</option>
               <option value="EXTERNAL">EXTERNAL</option>
             </select>
+            <p className="shell-field-hint">Fallback storage target when no prefix matches.</p>
           </div>
         </div>
-      </section>
+      </div>
 
-      <section className="card">
-        <p className="eyebrow">External Provider Configuration</p>
-        <div className="dashboard-grid-three" style={{ marginTop: 10 }}>
+      {/* External Provider Configuration */}
+      <div className="shell-form-section">
+        <div className="shell-form-section-header">
+          <h3>☁️ External Provider Configuration <ContextualHelp text="Configure your external object storage provider (MinIO, S3, R2, or GCS). Provide the endpoint URL, region, bucket name, and access credentials. Secrets are encrypted at rest and never stored in plain text." /></h3>
+        </div>
+        <div className="shell-form-grid" style={{ marginTop: 10 }}>
           <div className="field">
             <label htmlFor="external-provider">Provider</label>
             <select id="external-provider" className="select" value={externalProvider} onChange={(e) => setExternalProvider(e.target.value as StorageConfig["externalProvider"])}>
@@ -502,7 +554,7 @@ export default function StorageSettingsPage() {
             </select>
           </div>
           <div className="field">
-            <label htmlFor="external-endpoint">Endpoint</label>
+            <label htmlFor="external-endpoint">Endpoint <ContextualHelp text="The endpoint URL for your external storage. For S3: https://s3.amazonaws.com. For MinIO: http://localhost:9000. For R2: https://account-id.r2.cloudflarestorage.com." /></label>
             <input id="external-endpoint" className="input" value={externalEndpoint} onChange={(e) => setExternalEndpoint(e.target.value)} placeholder="https://s3.amazonaws.com" />
           </div>
           <div className="field">
@@ -516,9 +568,10 @@ export default function StorageSettingsPage() {
           <div className="field">
             <label htmlFor="force-path-style">Force Path Style</label>
             <select id="force-path-style" className="select" value={externalForcePathStyle ? "true" : "false"} onChange={(e) => setExternalForcePathStyle(e.target.value === "true")}>
-              <option value="true">true</option>
-              <option value="false">false</option>
+              <option value="true">Yes (path-style)</option>
+              <option value="false">No (virtual-hosted)</option>
             </select>
+            <p className="shell-field-hint">Required for MinIO. Usually false for AWS S3.</p>
           </div>
           <div className="field">
             <label htmlFor="access-key">Access Key ID</label>
@@ -530,33 +583,36 @@ export default function StorageSettingsPage() {
           </div>
         </div>
 
-        <p className="muted" style={{ marginTop: 8 }}>
-          Secrets are encrypted at rest. {hasSecrets ? `Last updated: ${secretUpdatedAt ?? "unknown"}.` : "No external secrets saved yet."}
+        <p className="shell-field-hint" style={{ marginTop: 8 }}>
+          🔒 Secrets are encrypted at rest. {hasSecrets ? `Last updated: ${secretUpdatedAt ?? "unknown"}.` : "No external secrets saved yet."}
         </p>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+        <div className="shell-form-actions">
           <button className="button button-primary compact" onClick={saveConfig} disabled={saving || testing || !journalSlug || !localPathPrefix.trim()}>
-            {saving ? "Saving..." : "Save Settings"}
+            {saving ? "Saving..." : "Save Storage Settings"}
           </button>
           <button className="button compact" onClick={testConnection} disabled={saving || testing || !journalSlug}>
-            {testing ? "Testing..." : "Test Connection"}
+            {testing ? "Testing..." : "Test Storage Connection"}
           </button>
         </div>
-      </section>
+      </div>
 
-      <section className="card">
-        <p className="eyebrow">Routing Simulation</p>
-        <div className="field" style={{ marginTop: 10 }}>
+      {/* Routing Simulation */}
+      <div className="shell-form-section">
+        <div className="shell-form-section-header">
+          <h3>🧪 Routing Simulation <ContextualHelp text="Test where a specific file key would be stored based on current routing policy. Enter a file path like 'journal-slug/submissions/example.pdf' to see which storage target it would route to." /></h3>
+        </div>
+        <div className="field" style={{ marginTop: 8 }}>
           <label htmlFor="simulation-key">File Key</label>
           <input id="simulation-key" className="input" value={simulationKey} onChange={(e) => setSimulationKey(e.target.value)} placeholder={`${journalSlug || "journal-slug"}/submissions/example.pdf`} />
+          <p className="shell-field-hint">Enter a file path to simulate where it would be stored.</p>
         </div>
-        <div style={{ marginTop: 10 }}>
-          <button className="button button-ghost compact" onClick={simulateRoute} disabled={simulating || !simulationKey.trim() || !journalSlug}>
-            {simulating ? "Simulating..." : "Simulate Route"}
-          </button>
-        </div>
+        <button className="button button-ghost compact" style={{ marginTop: 8 }} onClick={simulateRoute} disabled={simulating || !simulationKey.trim() || !journalSlug}>
+          {simulating ? "Simulating..." : "Simulate Route"}
+        </button>
         {simulation ? (
-          <div className="form-section" style={{ marginTop: 10 }}>
+          <div className="shell-form-section" style={{ marginTop: 10, borderLeft: "3px solid #0d9488" }}>
+            <h3 style={{ fontSize: "0.95rem" }}>Simulation Result</h3>
             <p><strong>Target:</strong> {simulation.simulation.target}</p>
             <p><strong>Provider:</strong> {simulation.simulation.provider}</p>
             <p><strong>Reason:</strong> {simulation.simulation.reason}</p>
@@ -564,12 +620,13 @@ export default function StorageSettingsPage() {
             <p><strong>Bucket:</strong> {simulation.simulation.bucket}</p>
           </div>
         ) : null}
-      </section>
+      </div>
+
       <ToastNotification open={!!toast} tone={toast?.tone ?? "info"} message={toast?.message ?? ""} onClose={() => setToast(null)} />
       <ConfirmationModal
         open={confirmSyncOpen}
         title="Run External Database Sync"
-        description="This will run sync immediately for the active journal. Continue?"
+        description="This will run sync immediately for the active journal. The sync will push journal data to the configured external PostgreSQL database. Continue?"
         confirmLabel="Run Sync"
         busy={runningDataSync}
         onCancel={() => setConfirmSyncOpen(false)}

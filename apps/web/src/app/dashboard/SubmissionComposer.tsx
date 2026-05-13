@@ -492,55 +492,40 @@ export default function SubmissionComposer() {
   if (!user) return <p>Please log in.</p>;
 
   return (
-    <main className="main-stack">
-      <section className="hero">
-        <h1>Submission Composer</h1>
-        <p>
-          Create and complete manuscript drafts with metadata, contributors, files, and policy acknowledgment.
+    <div className="submission-composer-inner">
+      <div className="card" style={{ marginTop: 14, color: "var(--ink-900)" }}>
+        <p className="eyebrow">Progress</p>
+        <p style={{ marginTop: 6, marginBottom: 8, color: "var(--ink-700)" }}>
+          {completedSteps}/{stepProgress.length} steps complete ({progressPercent}%)
         </p>
-        <div className="meta-row">
-          <span className="chip">
-            <span className="status-dot" />
-            Logged in as {user.name}
-          </span>
-          <Link className="button button-ghost compact" href="/dashboard">
-            Back to workspace
-          </Link>
-        </div>
-        <div className="card" style={{ marginTop: 14, color: "var(--ink-900)" }}>
-          <p className="eyebrow">Progress</p>
-          <p style={{ marginTop: 6, marginBottom: 8, color: "var(--ink-700)" }}>
-            {completedSteps}/{stepProgress.length} steps complete ({progressPercent}%)
-          </p>
+        <div
+          aria-label="Submission progress"
+          style={{
+            width: "100%",
+            height: 10,
+            borderRadius: 999,
+            background: "rgba(148, 163, 184, 0.25)",
+            overflow: "hidden",
+          }}
+        >
           <div
-            aria-label="Submission progress"
             style={{
-              width: "100%",
-              height: 10,
-              borderRadius: 999,
-              background: "rgba(148, 163, 184, 0.25)",
-              overflow: "hidden",
+              width: `${progressPercent}%`,
+              height: "100%",
+              background: "linear-gradient(90deg, var(--accent), var(--accent-2))",
+              transition: "width 220ms ease",
             }}
-          >
-            <div
-              style={{
-                width: `${progressPercent}%`,
-                height: "100%",
-                background: "linear-gradient(90deg, var(--accent), var(--accent-2))",
-                transition: "width 220ms ease",
-              }}
-            />
-          </div>
-          <ul className="list" style={{ marginTop: 10 }}>
-            {stepProgress.map((step) => (
-              <li key={step.label} className="list-item">
-                <span style={{ color: step.done ? "var(--accent-2)" : "var(--ink-600)" }}>{step.done ? "✓" : "•"}</span>{" "}
-                <span style={{ color: "var(--ink-700)" }}>{step.label}</span>
-              </li>
-            ))}
-          </ul>
+          />
         </div>
-      </section>
+        <ul className="list" style={{ marginTop: 10 }}>
+          {stepProgress.map((step) => (
+            <li key={step.label} className="list-item">
+              <span style={{ color: step.done ? "var(--accent-2)" : "var(--ink-600)" }}>{step.done ? "✓" : "•"}</span>{" "}
+              <span style={{ color: "var(--ink-700)" }}>{step.label}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <section className="card">
         <p className="eyebrow">Step 1</p>
@@ -587,229 +572,231 @@ export default function SubmissionComposer() {
         </div>
       </section>
 
-      {currentSubmission ? (
-        <>
-          <section className="card">
-            <p className="eyebrow">Step 2</p>
-            <h2 style={{ marginTop: 6, marginBottom: 8 }}>Manuscript metadata</h2>
-            <p className="muted" style={{ marginBottom: 12 }}>
-              Status: <strong>{currentSubmission.status}</strong>{" "}
-              {currentSubmission.trackingNumber ? `| Tracking: ${currentSubmission.trackingNumber}` : ""}
-            </p>
-            <div className="field">
-              <label htmlFor="title">Manuscript Title</label>
-              <input
-                id="title"
-                className="input"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                disabled={!canEditDraft}
-              />
-              {titleError ? <p className="alert">{titleError}</p> : null}
-            </div>
-            <div className="field" style={{ marginTop: 10 }}>
-              <label htmlFor="abstract">Abstract</label>
-              <textarea
-                id="abstract"
-                className="input"
-                rows={6}
-                value={abstractText}
-                onChange={(e) => setAbstractText(e.target.value)}
-                disabled={!canEditDraft}
-              />
-              {abstractError ? <p className="alert">{abstractError}</p> : null}
-            </div>
-            <div className="field" style={{ marginTop: 10 }}>
-              <label htmlFor="keywords">Keywords (comma separated)</label>
-              <input
-                id="keywords"
-                className="input"
-                value={keywordsText}
-                onChange={(e) => setKeywordsText(e.target.value)}
-                disabled={!canEditDraft}
-              />
-              {keywordsError ? <p className="alert">{keywordsError}</p> : null}
-            </div>
-            <div className="field" style={{ marginTop: 10 }}>
-              <label htmlFor="articleType">Article Type</label>
-              <input
-                id="articleType"
-                className="input"
-                value={articleType}
-                onChange={(e) => setArticleType(e.target.value)}
-                disabled={!canEditDraft}
-              />
-              {articleTypeError ? <p className="alert">{articleTypeError}</p> : null}
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <button className="button" onClick={saveDraftMetadata} disabled={!canEditDraft || busyAction !== null}>
-                {busyAction === "save-metadata" ? "Saving..." : "Save Metadata"}
-              </button>
-              <p className="muted" style={{ marginTop: 8 }}>
-                <span
-                  aria-label={`Autosave ${autosaveDot.label}`}
-                  title={`Autosave ${autosaveDot.label}`}
-                  style={{
-                    display: "inline-block",
-                    width: 8,
-                    height: 8,
-                    borderRadius: "999px",
-                    background: autosaveDot.color,
-                    marginRight: 8,
-                    verticalAlign: "middle",
-                  }}
-                />
-                Autosave:{" "}
-                {autosaveState === "saving"
-                  ? "Saving…"
-                  : autosaveState === "saved"
-                    ? "All changes saved"
-                    : autosaveState === "error"
-                      ? "Save failed"
-                      : "Idle"}
-                {relativeLastSaved ? ` • Last saved ${relativeLastSaved}` : ""}
+      {
+        currentSubmission ? (
+          <>
+            <section className="card">
+              <p className="eyebrow">Step 2</p>
+              <h2 style={{ marginTop: 6, marginBottom: 8 }}>Manuscript metadata</h2>
+              <p className="muted" style={{ marginBottom: 12 }}>
+                Status: <strong>{currentSubmission.status}</strong>{" "}
+                {currentSubmission.trackingNumber ? `| Tracking: ${currentSubmission.trackingNumber}` : ""}
               </p>
-            </div>
-          </section>
+              <div className="field">
+                <label htmlFor="title">Manuscript Title</label>
+                <input
+                  id="title"
+                  className="input"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  disabled={!canEditDraft}
+                />
+                {titleError ? <p className="alert">{titleError}</p> : null}
+              </div>
+              <div className="field" style={{ marginTop: 10 }}>
+                <label htmlFor="abstract">Abstract</label>
+                <textarea
+                  id="abstract"
+                  className="input"
+                  rows={6}
+                  value={abstractText}
+                  onChange={(e) => setAbstractText(e.target.value)}
+                  disabled={!canEditDraft}
+                />
+                {abstractError ? <p className="alert">{abstractError}</p> : null}
+              </div>
+              <div className="field" style={{ marginTop: 10 }}>
+                <label htmlFor="keywords">Keywords (comma separated)</label>
+                <input
+                  id="keywords"
+                  className="input"
+                  value={keywordsText}
+                  onChange={(e) => setKeywordsText(e.target.value)}
+                  disabled={!canEditDraft}
+                />
+                {keywordsError ? <p className="alert">{keywordsError}</p> : null}
+              </div>
+              <div className="field" style={{ marginTop: 10 }}>
+                <label htmlFor="articleType">Article Type</label>
+                <input
+                  id="articleType"
+                  className="input"
+                  value={articleType}
+                  onChange={(e) => setArticleType(e.target.value)}
+                  disabled={!canEditDraft}
+                />
+                {articleTypeError ? <p className="alert">{articleTypeError}</p> : null}
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <button className="button" onClick={saveDraftMetadata} disabled={!canEditDraft || busyAction !== null}>
+                  {busyAction === "save-metadata" ? "Saving..." : "Save Metadata"}
+                </button>
+                <p className="muted" style={{ marginTop: 8 }}>
+                  <span
+                    aria-label={`Autosave ${autosaveDot.label}`}
+                    title={`Autosave ${autosaveDot.label}`}
+                    style={{
+                      display: "inline-block",
+                      width: 8,
+                      height: 8,
+                      borderRadius: "999px",
+                      background: autosaveDot.color,
+                      marginRight: 8,
+                      verticalAlign: "middle",
+                    }}
+                  />
+                  Autosave:{" "}
+                  {autosaveState === "saving"
+                    ? "Saving…"
+                    : autosaveState === "saved"
+                      ? "All changes saved"
+                      : autosaveState === "error"
+                        ? "Save failed"
+                        : "Idle"}
+                  {relativeLastSaved ? ` • Last saved ${relativeLastSaved}` : ""}
+                </p>
+              </div>
+            </section>
 
-          <section className="card">
-            <p className="eyebrow">Step 3</p>
-            <h2 style={{ marginTop: 6, marginBottom: 8 }}>Contributors</h2>
-            <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+            <section className="card">
+              <p className="eyebrow">Step 3</p>
+              <h2 style={{ marginTop: 6, marginBottom: 8 }}>Contributors</h2>
+              <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+                <div className="field">
+                  <label htmlFor="cName">Name</label>
+                  <input
+                    id="cName"
+                    className="input"
+                    value={contributorName}
+                    onChange={(e) => setContributorName(e.target.value)}
+                    disabled={!canEditDraft}
+                  />
+                  {contributorNameError ? <p className="alert">{contributorNameError}</p> : null}
+                </div>
+                <div className="field">
+                  <label htmlFor="cEmail">Email</label>
+                  <input
+                    id="cEmail"
+                    className="input"
+                    value={contributorEmail}
+                    onChange={(e) => setContributorEmail(e.target.value)}
+                    disabled={!canEditDraft}
+                  />
+                  {contributorEmailError ? <p className="alert">{contributorEmailError}</p> : null}
+                </div>
+                <div className="field">
+                  <label htmlFor="cAff">Affiliation</label>
+                  <input
+                    id="cAff"
+                    className="input"
+                    value={contributorAffiliation}
+                    onChange={(e) => setContributorAffiliation(e.target.value)}
+                    disabled={!canEditDraft}
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <button className="button" onClick={addContributor} disabled={!canEditDraft || busyAction !== null}>
+                  {busyAction === "add-contributor" ? "Adding..." : "Add Contributor"}
+                </button>
+              </div>
+              <ul className="list" style={{ marginTop: 12 }}>
+                {(currentSubmission.contributors ?? []).map((c) => (
+                  <li key={c.id} className="list-item">
+                    <p style={{ fontWeight: 700 }}>{c.displayName}</p>
+                    <p className="muted">
+                      {c.email}
+                      {c.affiliation ? ` | ${c.affiliation}` : ""}
+                    </p>
+                  </li>
+                ))}
+                {(currentSubmission.contributors ?? []).length === 0 ? (
+                  <li className="list-item">No contributors added yet.</li>
+                ) : null}
+              </ul>
+            </section>
+
+            <section className="card">
+              <p className="eyebrow">Step 4</p>
+              <h2 style={{ marginTop: 6, marginBottom: 8 }}>Attach manuscript file</h2>
               <div className="field">
-                <label htmlFor="cName">Name</label>
+                <label htmlFor="file">File</label>
                 <input
-                  id="cName"
+                  id="file"
                   className="input"
-                  value={contributorName}
-                onChange={(e) => setContributorName(e.target.value)}
-                disabled={!canEditDraft}
-              />
-              {contributorNameError ? <p className="alert">{contributorNameError}</p> : null}
-            </div>
-              <div className="field">
-                <label htmlFor="cEmail">Email</label>
-                <input
-                  id="cEmail"
-                  className="input"
-                  value={contributorEmail}
-                onChange={(e) => setContributorEmail(e.target.value)}
-                disabled={!canEditDraft}
-              />
-              {contributorEmailError ? <p className="alert">{contributorEmailError}</p> : null}
-            </div>
-              <div className="field">
-                <label htmlFor="cAff">Affiliation</label>
-                <input
-                  id="cAff"
-                  className="input"
-                  value={contributorAffiliation}
-                  onChange={(e) => setContributorAffiliation(e.target.value)}
+                  type="file"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                   disabled={!canEditDraft}
                 />
               </div>
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <button className="button" onClick={addContributor} disabled={!canEditDraft || busyAction !== null}>
-                {busyAction === "add-contributor" ? "Adding..." : "Add Contributor"}
-              </button>
-            </div>
-            <ul className="list" style={{ marginTop: 12 }}>
-              {(currentSubmission.contributors ?? []).map((c) => (
-                <li key={c.id} className="list-item">
-                  <p style={{ fontWeight: 700 }}>{c.displayName}</p>
-                  <p className="muted">
-                    {c.email}
-                    {c.affiliation ? ` | ${c.affiliation}` : ""}
-                  </p>
-                </li>
-              ))}
-              {(currentSubmission.contributors ?? []).length === 0 ? (
-                <li className="list-item">No contributors added yet.</li>
-              ) : null}
-            </ul>
-          </section>
+              <div style={{ marginTop: 12 }}>
+                <button className="button" onClick={uploadFile} disabled={!canEditDraft || !file || busyAction !== null}>
+                  {busyAction === "upload-file" ? "Uploading..." : "Upload File"}
+                </button>
+              </div>
+            </section>
 
-          <section className="card">
-            <p className="eyebrow">Step 4</p>
-            <h2 style={{ marginTop: 6, marginBottom: 8 }}>Attach manuscript file</h2>
-            <div className="field">
-              <label htmlFor="file">File</label>
-              <input
-                id="file"
-                className="input"
-                type="file"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                disabled={!canEditDraft}
-              />
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <button className="button" onClick={uploadFile} disabled={!canEditDraft || !file || busyAction !== null}>
-                {busyAction === "upload-file" ? "Uploading..." : "Upload File"}
-              </button>
-            </div>
-          </section>
-
-          <section className="card">
-            <p className="eyebrow">Step 5</p>
-            <h2 style={{ marginTop: 6, marginBottom: 8 }}>Policy acknowledgment and submit</h2>
-            <p className="muted" style={{ marginBottom: 10 }}>
-              Review and acknowledge applicable policies before final submission.
-            </p>
-            <ul className="list">
-              {activeRequiredPolicies.map((doc) => (
-                <li key={doc.policyVersionId} className="list-item">
-                  <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <input
-                      type="checkbox"
-                      checked={acceptedPolicyVersionIds.includes(doc.policyVersionId)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setAcceptedPolicyVersionIds((prev) =>
-                            Array.from(new Set([...prev, doc.policyVersionId]))
-                          );
-                        } else {
-                          setAcceptedPolicyVersionIds((prev) =>
-                            prev.filter((k) => k !== doc.policyVersionId)
-                          );
-                        }
-                      }}
-                      disabled={!canEditDraft}
-                    />
-                    <span style={{ fontWeight: 700 }}>
-                      {doc.title} (v{doc.versionNumber})
-                    </span>
-                  </label>
-                </li>
-              ))}
-              {activeRequiredPolicies.length === 0 ? (
-                <li className="list-item">No required active policies for this journal.</li>
-              ) : null}
-            </ul>
-            <div style={{ marginTop: 12 }}>
-              <button className="button" onClick={submitDraft} disabled={!canEditDraft || !canSubmit}>
-                {busyAction === "submit-draft" ? "Submitting..." : "Submit Manuscript"}
-              </button>
-            </div>
-            <ul className="list" style={{ marginTop: 12 }}>
-              {completenessChecks.map((check) => (
-                <li key={check.label} className="list-item">
-                  <span style={{ color: check.done ? "var(--accent-2)" : "var(--warn)" }}>{check.done ? "✓" : "•"}</span>{" "}
-                  {check.label}
-                </li>
-              ))}
-            </ul>
-            {missingChecks.length > 0 ? (
-              <p className="muted" style={{ marginTop: 10 }}>
-                Complete all checklist items to enable submission.
+            <section className="card">
+              <p className="eyebrow">Step 5</p>
+              <h2 style={{ marginTop: 6, marginBottom: 8 }}>Policy acknowledgment and submit</h2>
+              <p className="muted" style={{ marginBottom: 10 }}>
+                Review and acknowledge applicable policies before final submission.
               </p>
-            ) : null}
-          </section>
-        </>
-      ) : null}
+              <ul className="list">
+                {activeRequiredPolicies.map((doc) => (
+                  <li key={doc.policyVersionId} className="list-item">
+                    <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <input
+                        type="checkbox"
+                        checked={acceptedPolicyVersionIds.includes(doc.policyVersionId)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setAcceptedPolicyVersionIds((prev) =>
+                              Array.from(new Set([...prev, doc.policyVersionId]))
+                            );
+                          } else {
+                            setAcceptedPolicyVersionIds((prev) =>
+                              prev.filter((k) => k !== doc.policyVersionId)
+                            );
+                          }
+                        }}
+                        disabled={!canEditDraft}
+                      />
+                      <span style={{ fontWeight: 700 }}>
+                        {doc.title} (v{doc.versionNumber})
+                      </span>
+                    </label>
+                  </li>
+                ))}
+                {activeRequiredPolicies.length === 0 ? (
+                  <li className="list-item">No required active policies for this journal.</li>
+                ) : null}
+              </ul>
+              <div style={{ marginTop: 12 }}>
+                <button className="button" onClick={submitDraft} disabled={!canEditDraft || !canSubmit}>
+                  {busyAction === "submit-draft" ? "Submitting..." : "Submit Manuscript"}
+                </button>
+              </div>
+              <ul className="list" style={{ marginTop: 12 }}>
+                {completenessChecks.map((check) => (
+                  <li key={check.label} className="list-item">
+                    <span style={{ color: check.done ? "var(--accent-2)" : "var(--warn)" }}>{check.done ? "✓" : "•"}</span>{" "}
+                    {check.label}
+                  </li>
+                ))}
+              </ul>
+              {missingChecks.length > 0 ? (
+                <p className="muted" style={{ marginTop: 10 }}>
+                  Complete all checklist items to enable submission.
+                </p>
+              ) : null}
+            </section>
+          </>
+        ) : null
+      }
 
       {success ? <p style={{ color: "var(--accent-2)", fontWeight: 700 }}>{success}</p> : null}
       {error ? <ErrorAlert message={error} /> : null}
-    </main>
+    </div >
   );
 }
