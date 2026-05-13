@@ -2,7 +2,7 @@ import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@n
 import type { SubmissionStatus } from "@prisma/client";
 import { prismaEnum } from "@pub/shared";
 import { z } from "zod";
-import { CurrentUser } from "../auth/current-user.decorator.js";
+import { CurrentUser, type CurrentUserType } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { EditorService } from "./editor.service.js";
 
@@ -34,33 +34,33 @@ export class EditorController {
   async queue(
     @Param("journalSlug") journalSlug: string,
     @Query("status") status: SubmissionStatus | undefined,
-    @CurrentUser() user: any
+    @CurrentUser() user: CurrentUserType
   ) {
     return this.editor.queue(journalSlug, user.id, status);
   }
 
   @UseGuards(SessionGuard)
   @Get("journals/:journalSlug/editor/candidates")
-  async candidates(@Param("journalSlug") journalSlug: string, @CurrentUser() user: any) {
+  async candidates(@Param("journalSlug") journalSlug: string, @CurrentUser() user: CurrentUserType) {
     return this.editor.candidates(journalSlug, user.id);
   }
 
   @UseGuards(SessionGuard)
   @Post("submissions/:submissionId/assign-editor")
-  async assignEditor(@Param("submissionId") submissionId: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async assignEditor(@Param("submissionId") submissionId: string, @Body() body: unknown, @CurrentUser() user: CurrentUserType) {
     const dto = AssignEditorDto.parse(body);
     return this.editor.assignEditor(submissionId, user.id, dto.userId, dto.role);
   }
 
   @UseGuards(SessionGuard)
   @Post("submissions/:submissionId/start-review-round")
-  async startReviewRound(@Param("submissionId") submissionId: string, @CurrentUser() user: any) {
+  async startReviewRound(@Param("submissionId") submissionId: string, @CurrentUser() user: CurrentUserType) {
     return this.editor.startReviewRound(submissionId, user.id);
   }
 
   @UseGuards(SessionGuard)
   @Post("review-rounds/:reviewRoundId/invite-reviewer")
-  async inviteReviewer(@Param("reviewRoundId") reviewRoundId: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async inviteReviewer(@Param("reviewRoundId") reviewRoundId: string, @Body() body: unknown, @CurrentUser() user: CurrentUserType) {
     const dto = InviteReviewerDto.parse(body);
     return this.editor.inviteReviewer(
       reviewRoundId,
@@ -73,13 +73,13 @@ export class EditorController {
 
   @UseGuards(SessionGuard)
   @Post("review-assignments/:assignmentId/cancel")
-  async cancel(@Param("assignmentId") assignmentId: string, @CurrentUser() user: any) {
+  async cancel(@Param("assignmentId") assignmentId: string, @CurrentUser() user: CurrentUserType) {
     return this.editor.cancelReviewAssignment(assignmentId, user.id);
   }
 
   @UseGuards(SessionGuard)
   @Post("submissions/:submissionId/decisions")
-  async decide(@Param("submissionId") submissionId: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async decide(@Param("submissionId") submissionId: string, @Body() body: unknown, @CurrentUser() user: CurrentUserType) {
     const dto = DecisionDto.parse(body);
     return this.editor.decide(submissionId, user.id, dto);
   }

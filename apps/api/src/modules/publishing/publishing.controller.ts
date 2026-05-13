@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
 import type { ArticleStatus as ArticleStatusType } from "@prisma/client";
 import { z } from "zod";
-import { CurrentUser } from "../auth/current-user.decorator.js";
+import { CurrentUser, type CurrentUserType } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { PublishingService } from "./publishing.service.js";
 
@@ -17,7 +17,7 @@ const PublishDto = z.object({ pdfFileId: z.string().uuid() });
 
 @Controller()
 export class PublishingController {
-  constructor(@Inject(PublishingService) private readonly publishing: PublishingService) {}
+  constructor(@Inject(PublishingService) private readonly publishing: PublishingService) { }
 
   @Get("journals/:journalSlug/volumes")
   async listVolumes(@Param("journalSlug") journalSlug: string) {
@@ -26,7 +26,7 @@ export class PublishingController {
 
   @UseGuards(SessionGuard)
   @Post("journals/:journalSlug/volumes")
-  async createVolume(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async createVolume(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: CurrentUserType) {
     const dto = CreateVolumeDto.parse(body);
     return this.publishing.createVolume(journalSlug, user.id, dto.year, dto.number);
   }
@@ -38,7 +38,7 @@ export class PublishingController {
 
   @UseGuards(SessionGuard)
   @Post("journals/:journalSlug/issues")
-  async createIssue(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async createIssue(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: CurrentUserType) {
     const dto = CreateIssueDto.parse(body);
     return this.publishing.createIssue(journalSlug, user.id, {
       volumeId: dto.volumeId,
@@ -65,21 +65,21 @@ export class PublishingController {
 
   @UseGuards(SessionGuard)
   @Post("articles/:articleId/assign-issue")
-  async assignIssue(@Param("articleId") articleId: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async assignIssue(@Param("articleId") articleId: string, @Body() body: unknown, @CurrentUser() user: CurrentUserType) {
     const dto = AssignIssueDto.parse(body);
     return this.publishing.assignIssue(articleId, user.id, dto.issueId);
   }
 
   @UseGuards(SessionGuard)
   @Post("articles/:articleId/publish")
-  async publish(@Param("articleId") articleId: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async publish(@Param("articleId") articleId: string, @Body() body: unknown, @CurrentUser() user: CurrentUserType) {
     const dto = PublishDto.parse(body);
     return this.publishing.publishArticle(articleId, user.id, dto.pdfFileId);
   }
 
   @UseGuards(SessionGuard)
   @Post("articles/:articleId/doi/deposit")
-  async queueDoiDeposit(@Param("articleId") articleId: string, @CurrentUser() user: any) {
+  async queueDoiDeposit(@Param("articleId") articleId: string, @CurrentUser() user: CurrentUserType) {
     return this.publishing.enqueueDoiDeposit(articleId, user.id);
   }
 }

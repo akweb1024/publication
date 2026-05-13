@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Inject, Post, Req, UnauthorizedException } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { z } from "zod";
-import { CurrentUser } from "./current-user.decorator.js";
+import { CurrentUser, type CurrentUserType } from "./current-user.decorator.js";
 import { SessionGuard } from "./session.guard.js";
 import { UseGuards } from "@nestjs/common";
 import { AuthService } from "./auth.service.js";
@@ -49,7 +49,7 @@ function consumeMfaToken(token: string) {
 
 @Controller("auth")
 export class AuthController {
-  constructor(@Inject(AuthService) private readonly auth: AuthService) {}
+  constructor(@Inject(AuthService) private readonly auth: AuthService) { }
 
   @Post("register")
   async register(@Body() body: unknown, @Req() req: FastifyRequest) {
@@ -143,27 +143,27 @@ export class AuthController {
 
   @UseGuards(SessionGuard)
   @Get("mfa/status")
-  async mfaStatus(@CurrentUser() user: any) {
+  async mfaStatus(@CurrentUser() user: CurrentUserType) {
     const safe = await this.auth.getUserSafe(user.id);
     return { mfaEnabled: !!safe?.mfaEnabled };
   }
 
   @UseGuards(SessionGuard)
   @Post("mfa/setup")
-  async mfaSetup(@CurrentUser() user: any) {
+  async mfaSetup(@CurrentUser() user: CurrentUserType) {
     return await this.auth.beginMfaEnrollment(user.id);
   }
 
   @UseGuards(SessionGuard)
   @Post("mfa/enable")
-  async mfaEnable(@CurrentUser() user: any, @Body() body: unknown) {
+  async mfaEnable(@CurrentUser() user: CurrentUserType, @Body() body: unknown) {
     const dto = MfaCodeDto.parse(body);
     return await this.auth.verifyMfaEnrollment(user.id, dto.code);
   }
 
   @UseGuards(SessionGuard)
   @Post("mfa/disable")
-  async mfaDisable(@CurrentUser() user: any, @Body() body: unknown) {
+  async mfaDisable(@CurrentUser() user: CurrentUserType, @Body() body: unknown) {
     const dto = MfaCodeDto.parse(body);
     await this.auth.verifyLoginMfa(user.id, dto.code);
     await this.auth.disableMfa(user.id);

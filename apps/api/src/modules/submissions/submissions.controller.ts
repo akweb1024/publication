@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
+import type { CurrentUserType } from "../auth/current-user.decorator.js";
 import { z } from "zod";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
@@ -35,30 +36,30 @@ const UpdateDraftDto = z.object({
 
 @Controller()
 export class SubmissionsController {
-  constructor(@Inject(SubmissionsService) private readonly submissions: SubmissionsService) {}
+  constructor(@Inject(SubmissionsService) private readonly submissions: SubmissionsService) { }
 
   @UseGuards(SessionGuard)
   @Post("journals/:journalSlug/submissions")
-  async createDraft(@Param("journalSlug") journalSlug: string, @CurrentUser() user: any) {
+  async createDraft(@Param("journalSlug") journalSlug: string, @CurrentUser() user: CurrentUserType) {
     return this.submissions.createDraft(journalSlug, user.id);
   }
 
   @UseGuards(SessionGuard)
   @Get("submissions")
-  async listMine(@Query("journalSlug") journalSlug: string, @Query("mine") mine: string, @CurrentUser() user: any) {
+  async listMine(@Query("journalSlug") journalSlug: string, @Query("mine") mine: string, @CurrentUser() user: CurrentUserType) {
     if (mine !== "true") return { items: [] };
     return this.submissions.listMine(journalSlug, user.id);
   }
 
   @UseGuards(SessionGuard)
   @Get("submissions/:submissionId")
-  async get(@Param("submissionId") submissionId: string, @CurrentUser() user: any) {
+  async get(@Param("submissionId") submissionId: string, @CurrentUser() user: CurrentUserType) {
     return this.submissions.getForUser(submissionId, user.id);
   }
 
   @UseGuards(SessionGuard)
   @Post("submissions/:submissionId/submit")
-  async submit(@Param("submissionId") submissionId: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async submit(@Param("submissionId") submissionId: string, @Body() body: unknown, @CurrentUser() user: CurrentUserType) {
     const dto = SubmitDto.parse(body);
     return this.submissions.submit(submissionId, user.id, dto.acceptedPolicyVersionIds);
   }
@@ -69,7 +70,7 @@ export class SubmissionsController {
     @Param("submissionId") submissionId: string,
     @Body() body: unknown,
     @Query("debugStorage") debugStorage: string | undefined,
-    @CurrentUser() user: any
+    @CurrentUser() user: CurrentUserType
   ) {
     const dto = CreateUploadDto.parse(body);
     return this.submissions.createSubmissionUpload(submissionId, user.id, dto, debugStorage === "true");
@@ -77,14 +78,14 @@ export class SubmissionsController {
 
   @UseGuards(SessionGuard)
   @Post("submissions/:submissionId/contributors")
-  async addContributor(@Param("submissionId") submissionId: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async addContributor(@Param("submissionId") submissionId: string, @Body() body: unknown, @CurrentUser() user: CurrentUserType) {
     const dto = AddContributorDto.parse(body);
     return this.submissions.addContributor(submissionId, user.id, dto);
   }
 
   @UseGuards(SessionGuard)
   @Post("submissions/:submissionId/update-draft")
-  async updateDraft(@Param("submissionId") submissionId: string, @Body() body: unknown, @CurrentUser() user: any) {
+  async updateDraft(@Param("submissionId") submissionId: string, @Body() body: unknown, @CurrentUser() user: CurrentUserType) {
     const dto = UpdateDraftDto.parse(body);
     return this.submissions.updateDraftMetadata(submissionId, user.id, dto);
   }

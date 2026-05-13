@@ -1,16 +1,17 @@
 import { CanActivate, ExecutionContext, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
+import type { CurrentUserType } from "./current-user.decorator.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 declare module "fastify" {
   interface FastifyRequest {
-    currentUser?: { id: string; email: string; name: string; mfaEnabled?: boolean };
+    currentUser?: CurrentUserType;
   }
 }
 
 @Injectable()
 export class SessionGuard implements CanActivate {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) { }
 
   async canActivate(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest<FastifyRequest>();

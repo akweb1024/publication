@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Inject, NotFoundException, Param, Post, UseGuards } from "@nestjs/common";
 import { prismaEnum } from "@pub/shared";
 import { z } from "zod";
-import { CurrentUser } from "../auth/current-user.decorator.js";
+import { CurrentUser, type CurrentUserType } from "../auth/current-user.decorator.js";
 import { JournalRoleGuard } from "../auth/journal-role.guard.js";
 import { RequireJournalRoles } from "../auth/journal-role.guard.js";
 import { SessionGuard } from "../auth/session.guard.js";
@@ -118,7 +118,7 @@ export class PoliciesController {
     @Param("journalSlug") journalSlug: string,
     @Param("key") key: string,
     @Body() body: unknown,
-    @CurrentUser() user: any
+    @CurrentUser() user: CurrentUserType
   ) {
     const dto = CreatePolicyVersionDto.parse(body);
     const journal = await this.journalResolver.resolveSlug(journalSlug);
@@ -168,7 +168,7 @@ export class PoliciesController {
     @Param("key") key: string,
     @Param("n") n: string,
     @Body() body: unknown,
-    @CurrentUser() user: any
+    @CurrentUser() user: CurrentUserType
   ) {
     const dto = ActivatePolicyVersionDto.parse(body);
     const versionNumber = Number(n);

@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Inject, Patch, UseGuards } from "@nestjs/common";
 import { z } from "zod";
-import { CurrentUser } from "../auth/current-user.decorator.js";
+import { CurrentUser, type CurrentUserType } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
@@ -10,17 +10,17 @@ const PatchMeDto = z.object({
 
 @Controller("me")
 export class MeController {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) { }
 
   @UseGuards(SessionGuard)
   @Get()
-  async get(@CurrentUser() user: any) {
+  async get(@CurrentUser() user: CurrentUserType) {
     return user;
   }
 
   @UseGuards(SessionGuard)
   @Patch()
-  async patch(@Body() body: unknown, @CurrentUser() user: any) {
+  async patch(@Body() body: unknown, @CurrentUser() user: CurrentUserType) {
     const dto = PatchMeDto.parse(body);
     const updated = await this.prisma.user.update({
       where: { id: user.id },
