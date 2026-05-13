@@ -1,9 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Source_Serif_4, Space_Grotesk } from "next/font/google";
-import Logo from "../components/Logo";
-import TopNav from "../components/TopNav";
+import SiteFrame from "../components/SiteFrame";
 import { getSiteUrl } from "../lib/seo";
 
 const headingFont = Space_Grotesk({
@@ -69,59 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${headingFont.variable} ${bodyFont.variable}`}>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgSchema) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteSchema) }} />
-        <div className="site-shell">
-          <header className="site-header">
-            <div className="container header-row">
-              <Link href="/" className="brand">
-                <Logo style={{ height: "48px", width: "48px", flexShrink: 0 }} />
-                <span className="brand-copy">
-                  <strong>STM Journals</strong>
-                  <small>Scholarly Publishing Platform</small>
-                </span>
-              </Link>
-              <TopNav />
-            </div>
-          </header>
-          <main className="container" style={{ flexGrow: 1 }}>{children}</main>
-          <footer className="site-footer">
-            <div className="container footer-grid">
-              <div className="footer-brand">
-                <p className="footer-title">STM Journals Platform</p>
-                <p>International scholarly publishing infrastructure for transparent editorial and peer-review workflows.</p>
-              </div>
-              <div>
-                <p className="footer-col-title">Platform</p>
-                <ul className="footer-links">
-                  <li><Link href="/journals">Journals Directory</Link></li>
-                  <li><Link href="/about">About Us</Link></li>
-                  <li><Link href="/policies">Policies & Ethics</Link></li>
-                </ul>
-              </div>
-              <div>
-                <p className="footer-col-title">Information For</p>
-                <ul className="footer-links">
-                  <li><Link href="/authors">Author Guidelines</Link></li>
-                  <li><Link href="/readers">Readers</Link></li>
-                  <li><Link href="/editors">Reviewer Guidelines</Link></li>
-                  <li><Link href="/subscribers">Subscribers</Link></li>
-                </ul>
-              </div>
-              <div>
-                <p className="footer-col-title">Journal Links</p>
-                <ul className="footer-links">
-                  <li><Link href="/journals">Browse Journals</Link></li>
-                  <li><Link href="/journals">Editorial Board</Link></li>
-                  <li><Link href="/journals">Archive</Link></li>
-                  <li><Link href="/about">Contact</Link></li>
-                </ul>
-              </div>
-            </div>
-            <div className="container footer-bottom">© 2026 STM Journals. All rights reserved.</div>
-          </footer>
-          <div className="bg-orb orb-a" />
-          <div className="bg-orb orb-b" />
-          <div className="bg-grid" />
-        </div>
+        <SiteFrame>{children}</SiteFrame>
       </body>
     </html>
   );

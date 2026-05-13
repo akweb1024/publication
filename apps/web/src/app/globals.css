@@ -2068,7 +2068,7 @@ textarea:focus-visible {
   display: grid;
   grid-template-columns: 260px 1fr;
   gap: 0;
-  min-height: calc(100vh - 76px);
+  min-height: 100vh;
   background: #f1f5f9;
   position: relative;
 }
@@ -2084,11 +2084,11 @@ textarea:focus-visible {
 /* ── Sidebar ── */
 .shell-sidebar {
   position: sticky;
-  top: 76px;
+  top: 0;
   background: #fff;
   border-right: 1px solid var(--line);
   padding: 0;
-  max-height: calc(100vh - 76px);
+  max-height: 100vh;
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
@@ -2377,7 +2377,7 @@ textarea:focus-visible {
   background: #fff;
   border-bottom: 1px solid var(--line);
   position: sticky;
-  top: 76px;
+  top: 0;
   z-index: 40;
   min-height: 52px;
 }
@@ -2386,6 +2386,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 .shell-header-center {
@@ -2403,6 +2404,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 
 .shell-mobile-toggle {
@@ -2521,16 +2523,24 @@ textarea:focus-visible {
   z-index: 60;
 }
 
-.shell-notifications-dropdown {
+.shell-notifications-wrap {
   position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.shell-notifications-dropdown {
+  position: absolute;
 }
 
 .shell-profile-wrap {
   position: relative;
+  display: grid;
+  place-items: center;
 }
 
 .shell-profile-dropdown {
-  position: relative;
+  position: absolute;
 }
 
 .shell-profile-info {
@@ -3471,7 +3481,16 @@ textarea:focus-visible {
   }
 
   .shell-header {
-    top: 76px;
+    top: 0;
+    flex-wrap: wrap;
+  }
+
+  .shell-header-left {
+    flex: 1 1 auto;
+  }
+
+  .shell-header-right {
+    margin-left: auto;
   }
 
   .shell-header-center .shell-header-journal {
@@ -3525,6 +3544,33 @@ textarea:focus-visible {
   .shell-header {
     padding: 8px 12px;
     gap: 8px;
+  }
+
+  .shell-header-left {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+
+  .shell-header-right {
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .shell-header-right::-webkit-scrollbar {
+    display: none;
+  }
+
+  .shell-api-health {
+    display: none;
+  }
+
+  .shell-search-dropdown,
+  .shell-dropdown {
+    right: auto;
+    left: 0;
+    width: min(320px, calc(100vw - 24px));
   }
 
   .shell-page-header {

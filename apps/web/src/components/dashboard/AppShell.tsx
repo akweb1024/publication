@@ -479,7 +479,7 @@ export default function AppShell({
         {/* ── Top header ── */}
         <header className="shell-header">
           <div className="shell-header-left">
-            <button type="button" className="shell-mobile-toggle button button-ghost compact" aria-label="Open navigation menu" onClick={() => setMobileNavOpen((v) => !v)}>
+            <button type="button" className="shell-mobile-toggle button button-ghost compact" aria-label="Open dashboard navigation" onClick={() => setMobileNavOpen((v) => !v)}>
               {ICONS.collapse}
             </button>
             <Breadcrumbs items={breadcrumbItems} />
@@ -527,15 +527,17 @@ export default function AppShell({
             </div>
 
             {/* Notifications */}
-            <button type="button" className="shell-header-action" aria-label="Notifications" onClick={() => setNotificationsOpen((v) => !v)}>
-              {ICONS.bell}
-            </button>
-            {notificationsOpen && (
-              <div className="shell-dropdown shell-notifications-dropdown" role="dialog" aria-label="Notifications">
-                <p className="eyebrow">Notifications</p>
-                <p className="muted" style={{ padding: 12 }}>No new notifications.</p>
-              </div>
-            )}
+            <div className="shell-notifications-wrap">
+              <button type="button" className="shell-header-action" aria-label="Notifications" onClick={() => setNotificationsOpen((v) => !v)}>
+                {ICONS.bell}
+              </button>
+              {notificationsOpen && (
+                <div className="shell-dropdown shell-notifications-dropdown" role="dialog" aria-label="Notifications">
+                  <p className="eyebrow">Notifications</p>
+                  <p className="muted" style={{ padding: 12 }}>No new notifications.</p>
+                </div>
+              )}
+            </div>
 
             {/* Help button */}
             <button type="button" className="shell-header-action shell-help-btn" aria-label="Help" onClick={() => setHelpOpen((v) => !v)}>
@@ -543,7 +545,9 @@ export default function AppShell({
             </button>
 
             {/* API Health */}
-            <ApiHealthBadge />
+            <div className="shell-api-health">
+              <ApiHealthBadge />
+            </div>
 
             {/* User profile */}
             <div className="shell-profile-wrap">
