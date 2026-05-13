@@ -1,3 +1,4 @@
+import Link from "next/link";
 import JournalNav from "../../../components/JournalNav";
 import { getJournal, getPolicyLatest } from "../../../lib/api";
 
@@ -75,9 +76,9 @@ export default async function FocusScopePage({ params }: { params: Promise<{ jou
         <h3>Ready To Contribute?</h3>
         <p className="muted">Submit your manuscript, review author instructions, or contact the editorial office.</p>
         <div className="cta-actions">
-          <a href="/register" className="button button-primary compact">Submit Manuscript</a>
-          <a href={`/${journalSlug}/policies`} className="button button-ghost compact">View Author Guidelines</a>
-          <a href="/about" className="button button-ghost compact">Contact Editorial Office</a>
+          <Link href="/register" className="button button-primary compact">Submit Manuscript</Link>
+          <Link href={`/${journalSlug}/policies`} className="button button-ghost compact">View Author Guidelines</Link>
+          <Link href="/about" className="button button-ghost compact">Contact Editorial Office</Link>
         </div>
       </section>
     </main>

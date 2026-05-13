@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { createPageMetadata } from "../../lib/seo";
 
@@ -78,8 +79,8 @@ export default function AboutPage() {
         <h3>Contact & Support</h3>
         <p className="muted">For institutional partnerships, submission support, and journal onboarding, contact our editorial support team.</p>
         <div className="cta-actions">
-          <a href="/journals" className="button button-primary compact">Browse Journals</a>
-          <a href="/policies" className="button button-ghost compact">Policies & Ethics</a>
+          <Link href="/journals" className="button button-primary compact">Browse Journals</Link>
+          <Link href="/policies" className="button button-ghost compact">Policies & Ethics</Link>
         </div>
       </section>
     </main>
