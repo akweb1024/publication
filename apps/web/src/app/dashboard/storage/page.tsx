@@ -365,6 +365,14 @@ export default function StorageSettingsPage() {
         { label: "Test Connection", onClick: testConnection, variant: "secondary" },
         { label: "Run Sync Now", onClick: () => setConfirmSyncOpen(true), variant: "ghost" },
       ]}
+      workflowSteps={[
+        { label: "Select Journal", state: "complete" },
+        { label: "Configure Storage Method", state: "current" },
+        { label: "Configure External Database", state: "current" },
+        { label: "Test Connection", state: "upcoming" },
+        { label: "Run Sync", state: "upcoming" },
+        { label: "Review Sync History", state: "upcoming" },
+      ]}
       actions={<StatusBadge label={syncStatusLabel()} tone={syncStatusTone()} />}
     >
       {error ? <ErrorAlert message={error} /> : null}

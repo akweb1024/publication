@@ -206,6 +206,14 @@ export default function PublishingDashboardPage() {
         { label: "Create Volume", onClick: createVolume, variant: "primary" },
         { label: "Create Issue", onClick: createIssue, variant: "secondary" },
       ]}
+      workflowSteps={[
+        { label: "Select Accepted Paper", state: "complete" },
+        { label: "Verify Metadata", state: "complete" },
+        { label: "Select Volume and Issue", state: "current" },
+        { label: "Upload Final PDF", state: "upcoming" },
+        { label: "Add DOI / Pages / Article ID", state: "upcoming" },
+        { label: "Preview and Publish", state: "upcoming" },
+      ]}
     >
       {error ? <ErrorAlert message={error} /> : null}
 

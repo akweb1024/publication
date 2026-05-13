@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { apiJson } from "../../lib/clientApi";
 import { errorMessage } from "../../lib/errorMessage";
 import ErrorAlert from "../../components/ErrorAlert";
+import AppShell from "../../components/dashboard/AppShell";
 
 type NavContext = {
   authenticated: boolean;
@@ -95,29 +97,45 @@ export default function DashboardHomePage() {
   if (!ctx) return <p>Loading dashboard...</p>;
 
   return (
-    <main className="main-stack">
-      <section className="hero">
-        <h1>Workspace Dashboard</h1>
-        <p>Open the areas you can access based on your current journal roles.</p>
+    <AppShell
+      title="Workflow Dashboard"
+      sectionLabel="Workspace"
+      description="Choose a guided workspace based on your current role and continue where you left off."
+      breadcrumbItems={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Overview", href: "/dashboard" },
+      ]}
+      workflowSteps={[
+        { label: "Select Journal", state: "current" },
+        { label: "Process Manuscripts", state: "upcoming" },
+        { label: "Publish Articles", state: "upcoming" },
+        { label: "Review Reports", state: "upcoming" },
+      ]}
+      quickActions={[
+        { label: "Journal Setup", href: "/dashboard/journals", variant: "primary" },
+        { label: "Editorial Queue", href: "/dashboard/editor", variant: "secondary" },
+        { label: "Publishing Desk", href: "/dashboard/publishing", variant: "ghost" },
+      ]}
+    >
+      <section className="dashboard-grid-three">
+        {links.map((item) => (
+          <article key={item.href} className="content-card">
+            <h3>{item.title}</h3>
+            <p>{item.description}</p>
+            <div style={{ marginTop: 12 }}>
+              <Link className="button compact button-primary" href={item.href}>
+                Open Workspace
+              </Link>
+            </div>
+          </article>
+        ))}
       </section>
-      <section className="card">
-        <p className="eyebrow">Role-Based Access</p>
-        <h2 style={{ marginTop: 8, marginBottom: 12 }}>Available Workspaces</h2>
-        <div className="grid">
-          {links.map((item) => (
-            <article key={item.href} className="card journal-card">
-              <h3>{item.title}</h3>
-              <p>{item.description}</p>
-              <div className="meta-row" style={{ marginTop: "auto" }}>
-                <a className="button compact" href={item.href}>
-                  Open
-                </a>
-              </div>
-            </article>
-          ))}
-          {links.length === 0 ? <p className="muted">No dashboard areas available for this account yet.</p> : null}
-        </div>
-      </section>
-    </main>
+      {links.length === 0 ? (
+        <section className="content-card empty-state">
+          <h3>No workspace modules are assigned yet</h3>
+          <p className="muted">Ask an administrator to grant a journal role for this account.</p>
+        </section>
+      ) : null}
+    </AppShell>
   );
 }

@@ -1357,6 +1357,122 @@ textarea:focus-visible {
   }
 }
 
+/* Workflow-first dashboard shell */
+.dashboard-shell {
+  gap: 14px;
+}
+
+.dashboard-sidebar {
+  border-radius: 14px;
+}
+
+.dashboard-brand {
+  margin-bottom: 8px;
+}
+
+.dashboard-nav-group {
+  margin-bottom: 8px;
+}
+
+.dashboard-nav-group-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-600);
+  margin: 8px 8px 6px;
+  font-weight: 700;
+}
+
+.dashboard-nav-item {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.dashboard-page-header h1 {
+  font-size: clamp(1.35rem, 2.2vw, 1.9rem);
+}
+
+.dashboard-page-header p {
+  max-width: 760px;
+}
+
+.workflow-steps {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.workflow-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+  color: var(--ink-700);
+}
+
+.workflow-step-index {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border: 1px solid var(--line);
+}
+
+.workflow-step-complete {
+  border-color: rgba(13, 148, 136, 0.3);
+  background: rgba(13, 148, 136, 0.06);
+}
+
+.workflow-step-complete .workflow-step-index {
+  border-color: #0d9488;
+  color: #0f766e;
+  background: rgba(13, 148, 136, 0.12);
+}
+
+.workflow-step-current {
+  border-color: rgba(79, 70, 229, 0.38);
+  background: rgba(79, 70, 229, 0.08);
+}
+
+.workflow-step-current .workflow-step-index {
+  border-color: #4f46e5;
+  color: #3730a3;
+  background: rgba(79, 70, 229, 0.14);
+}
+
+.workflow-step-upcoming {
+  opacity: 0.95;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-menu-toggle {
+    display: inline-flex;
+  }
+
+  .dashboard-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-sidebar {
+    display: none;
+    position: static;
+    max-height: none;
+  }
+
+  .dashboard-sidebar.open {
+    display: block;
+  }
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;

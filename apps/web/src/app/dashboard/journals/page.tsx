@@ -346,6 +346,14 @@ export default function JournalSettingsPage() {
         { label: "Backfill Admin", onClick: runDefaultAdminBackfill, variant: "secondary" },
         { label: "Storage", href: "/dashboard/storage", variant: "ghost" },
       ]}
+      workflowSteps={[
+        { label: "Basic Journal Information", state: "complete" },
+        { label: "ISSN / eISSN Details", state: "current" },
+        { label: "Subject Area & Scope", state: "upcoming" },
+        { label: "Editorial Board", state: "upcoming" },
+        { label: "Policies & Branding", state: "upcoming" },
+        { label: "Publish Journal Profile", state: "upcoming" },
+      ]}
       actions={
         <StatusBadge
           label={completionScore >= 90 ? `Profile ${completionScore}%` : `Setup ${completionScore}%`}
