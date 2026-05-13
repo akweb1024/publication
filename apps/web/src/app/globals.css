@@ -3443,6 +3443,67 @@ textarea:focus-visible {
   top: 128px;
 }
 
+/* ── Data Manager ── */
+.data-manager-toolbar {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.data-manager-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.data-manager-tab {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink-700);
+  cursor: pointer;
+  font-family: var(--font-heading), sans-serif;
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 8px 14px;
+}
+
+.data-manager-tab:hover,
+.data-manager-tab.active {
+  background: rgba(79, 70, 229, 0.1);
+  border-color: rgba(79, 70, 229, 0.3);
+  color: var(--accent);
+}
+
+.data-manager-filters {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 240px);
+  gap: 10px;
+  align-items: end;
+}
+
+.data-manager-table {
+  overflow-x: auto;
+}
+
+.data-manager-table .shell-table {
+  min-width: 840px;
+}
+
+.data-manager-forms {
+  display: grid;
+  gap: 16px;
+}
+
+.compact-select {
+  min-width: 190px;
+  padding: 8px 10px;
+  font-size: 0.84rem;
+}
+
 /* ── Responsive ── */
 @media (max-width: 1080px) {
   .shell-root {
@@ -3596,6 +3657,10 @@ textarea:focus-visible {
 
   .shell-table-wrap {
     overflow-x: auto;
+  }
+
+  .data-manager-filters {
+    grid-template-columns: 1fr;
   }
 }
 

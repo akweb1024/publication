@@ -201,6 +201,7 @@ const SIDEBAR_NAV: NavGroup[] = [
     items: [
       { label: "Users", href: "/dashboard/journals?tab=users", icon: "user", capability: "canSecurity" },
       { label: "Roles & Permissions", href: "/dashboard/journals?tab=roles", icon: "admin", capability: "canSecurity" },
+      { label: "Data Manager", href: "/dashboard/data", icon: "storage", capability: "canManageJournal" },
       { label: "Settings", href: "/dashboard/journals?tab=settings", icon: "editorial", capability: "canManageJournal" },
       { label: "API Health", href: "/dashboard/security", icon: "editorial", capability: "canSecurity" },
     ],
