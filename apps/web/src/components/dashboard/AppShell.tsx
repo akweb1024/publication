@@ -290,24 +290,22 @@ export default function AppShell({
     })).filter((group) => group.items.length > 0);
   }, [navContext?.capabilities]);
 
-  /* Active link detection */
-  const activeHref = useMemo(() => {
-    const allItems = visibleGroups.flatMap((g) => g.items);
-    const found = allItems.find((item) => pathname === item.href || pathname.startsWith(item.href.split("?")[0] + "/") || (item.href.includes("?") && pathname === item.href.split("?")[0]));
-    return found?.href ?? pathname;
-  }, [pathname, visibleGroups]);
-
   /* Auto-expand group containing active item */
   useEffect(() => {
+    let activeGroupKey: string | null = null;
     for (const group of visibleGroups) {
       for (const item of group.items) {
         if (pathname === item.href.split("?")[0] || pathname.startsWith(item.href.split("?")[0] + "/")) {
-          if (!openGroups[group.key]) {
-            setOpenGroups((prev) => ({ ...prev, [group.key]: true }));
-          }
+          activeGroupKey = group.key;
+          break;
         }
       }
+      if (activeGroupKey) break;
     }
+    if (!activeGroupKey) return;
+    setOpenGroups((prev) => (
+      prev[activeGroupKey] ? prev : { ...prev, [activeGroupKey]: true }
+    ));
   }, [pathname, visibleGroups]);
 
   /* Keyboard shortcut for search */

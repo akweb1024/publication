@@ -5,7 +5,6 @@ import { apiJson } from "../../../lib/clientApi";
 import { errorMessage } from "../../../lib/errorMessage";
 import ErrorAlert from "../../../components/ErrorAlert";
 import AppShell from "../../../components/dashboard/AppShell";
-import StatCard from "../../../components/dashboard/StatCard";
 import StatusBadge from "../../../components/dashboard/StatusBadge";
 import ToastNotification from "../../../components/dashboard/ToastNotification";
 import SkeletonBlock from "../../../components/dashboard/SkeletonBlock";

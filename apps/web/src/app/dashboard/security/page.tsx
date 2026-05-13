@@ -186,7 +186,7 @@ export default function SecuritySettingsPage() {
                 <div className="field" style={{ marginTop: 8 }}>
                   <label>Authenticator Secret Key</label>
                   <input className="input" value={setupSecret} readOnly />
-                  <p className="shell-field-hint">Copy this secret key if you can't scan the QR code. Enter it manually in your authenticator app.</p>
+                  <p className="shell-field-hint">Copy this secret key if you can&apos;t scan the QR code. Enter it manually in your authenticator app.</p>
                 </div>
                 {setupUri ? (
                   <div style={{ display: "grid", justifyItems: "start", gap: 8, marginTop: 8 }}>

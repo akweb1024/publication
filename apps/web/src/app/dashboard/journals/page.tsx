@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiJson } from "../../../lib/clientApi";
 import { errorMessage } from "../../../lib/errorMessage";
 import ErrorAlert from "../../../components/ErrorAlert";
@@ -130,7 +130,7 @@ export default function JournalSettingsPage() {
     return `${raw.slice(0, 4)}-${raw.slice(4)}`;
   }
 
-  async function loadJournal(slug: string) {
+  const loadJournal = useCallback(async (slug: string) => {
     const detail = await apiJson<JournalDetails>(`/journals/${encodeURIComponent(slug)}`, { method: "GET" });
     setTitle(detail.title ?? "");
     setDescription(detail.description ?? "");
@@ -143,9 +143,9 @@ export default function JournalSettingsPage() {
     setMetaDescription(detail.description ?? "");
     const roleRes = await apiJson<{ items: JournalRoleAssignment[] }>(`/journals/${encodeURIComponent(slug)}/roles`, { method: "GET" });
     setRoleAssignments(roleRes.items);
-  }
+  }, []);
 
-  async function reloadJournals(preferredSlug?: string) {
+  const reloadJournals = useCallback(async (preferredSlug?: string) => {
     const response = await apiJson<{ items: Journal[] }>("/journals", { method: "GET" });
     setJournals(response.items);
     const nextSlug =
@@ -156,7 +156,7 @@ export default function JournalSettingsPage() {
     if (nextSlug) {
       await loadJournal(nextSlug);
     }
-  }
+  }, [loadJournal]);
 
   useEffect(() => {
     let mounted = true;
@@ -178,7 +178,7 @@ export default function JournalSettingsPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [reloadJournals]);
 
   async function handleJournalSwitch(nextSlug: string) {
     setJournalSlug(nextSlug);

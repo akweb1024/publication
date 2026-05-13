@@ -6,7 +6,6 @@ import { apiJson } from "../../lib/clientApi";
 import { errorMessage } from "../../lib/errorMessage";
 import ErrorAlert from "../../components/ErrorAlert";
 import AppShell from "../../components/dashboard/AppShell";
-import StatCard from "../../components/dashboard/StatCard";
 import StatusBadge from "../../components/dashboard/StatusBadge";
 import SkeletonBlock from "../../components/dashboard/SkeletonBlock";
 import OnboardingChecklist from "../../components/dashboard/OnboardingChecklist";
@@ -86,7 +85,6 @@ const WORKSPACE_ITEMS: Array<{
 export default function DashboardHomePage() {
   const [ctx, setCtx] = useState<NavContext | null>(null);
   const [journals, setJournals] = useState<JournalSummary[]>([]);
-  const [stats, setStats] = useState<StatItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -200,7 +198,7 @@ export default function DashboardHomePage() {
       quickActions={quickActions}
       journals={journals}
       selectedJournalSlug={journals[0]?.slug}
-      onJournalChange={(slug) => { }}
+      onJournalChange={() => { }}
       helpTopic="Workflow Dashboard"
     >
       {/* Welcome banner */}

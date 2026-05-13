@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 
 type HelpPanelProps = {
     open: boolean;
@@ -67,7 +68,7 @@ export default function HelpPanel({ open, onClose, content, title }: HelpPanelPr
                     <ul className="help-list">{renderContent(content)}</ul>
                 </div>
                 <div className="help-panel-footer">
-                    <p className="muted">Need more help? <a href="/dashboard/help" style={{ color: "var(--accent)", fontWeight: 600 }}>Visit Help & Support</a></p>
+                    <p className="muted">Need more help? <Link href="/dashboard/help" style={{ color: "var(--accent)", fontWeight: 600 }}>Visit Help & Support</Link></p>
                 </div>
             </div>
         </div>

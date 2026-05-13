@@ -121,7 +121,7 @@ export default function HelpPage() {
                             <li>Use <strong>Ctrl+K</strong> (or Cmd+K on Mac) to open the global search and quickly find any page.</li>
                             <li>Click the <strong>Help button</strong> (question mark icon) in the top header or on any page to get contextual help.</li>
                             <li>The <strong>journal switcher</strong> in the sidebar and header lets you change the active journal context.</li>
-                            <li>Look for <strong>"What does this mean?"</strong> links (question mark icons) near technical fields for inline explanations.</li>
+                            <li>Look for <strong>&quot;What does this mean?&quot;</strong> links (question mark icons) near technical fields for inline explanations.</li>
                             <li>Workflow progress bars show your current position in multi-step processes like journal setup and publishing.</li>
                         </ul>
                     </div>
@@ -195,7 +195,7 @@ export default function HelpPage() {
                         </div>
                         <div className="shell-section-card">
                             <div className="shell-section-card-title">📋 Contextual Help</div>
-                            <p className="muted">Click the help button (question mark icon) on any dashboard page to get page-specific guidance. Look for "What does this mean?" links near technical fields.</p>
+                            <p className="muted">Click the help button (question mark icon) on any dashboard page to get page-specific guidance. Look for &quot;What does this mean?&quot; links near technical fields.</p>
                         </div>
                         <div className="shell-section-card">
                             <div className="shell-section-card-title">🔍 Audit & Error Logs</div>
