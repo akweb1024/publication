@@ -66,7 +66,7 @@ export default function RoleAwareNav() {
           {journalsActive && (
             <motion.div layoutId="active-pill" className="nav-pill" transition={{ type: "spring", stiffness: 300, damping: 30 }} />
           )}
-          <span style={{ position: "relative", zIndex: 2 }}>Journals</span>
+          <span style={{ position: "relative", zIndex: 2 }}>Journals Directory</span>
         </Link>
         <Link href="/about" className={`nav-link ${pathname === "/about" ? "nav-link-active" : ""}`}>
           {pathname === "/about" && (
@@ -80,7 +80,7 @@ export default function RoleAwareNav() {
           )}
           <span style={{ position: "relative", zIndex: 2 }}>Policies</span>
         </Link>
-        <Link href="/login" className="button button-ghost compact">
+        <Link href="/login" className="button button-primary compact">
           Login
         </Link>
       </>
@@ -117,7 +117,7 @@ export default function RoleAwareNav() {
       </span>
       {primaryRoleLabel ? <span className="chip role-chip">{primaryRoleLabel}</span> : null}
       
-      <NavItem href="/journals" label="Journals" />
+      <NavItem href="/journals" label="Journals Directory" />
       <NavItem href="/about" label="About" />
       <NavItem href="/policies" label="Policies" />
       
@@ -136,7 +136,7 @@ export default function RoleAwareNav() {
       ) : null}
       {capabilities?.canSecurity ? <NavItem href="/dashboard/security" label="Security" /> : null}
       
-      <Link href="/login" className="button button-ghost compact">
+      <Link href="/login" className="button button-primary compact">
         Switch Account
       </Link>
     </>

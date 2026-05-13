@@ -76,7 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Logo style={{ height: "48px", width: "48px", flexShrink: 0 }} />
                 <span className="brand-copy">
                   <strong>STM Journals</strong>
-                  <small>&#123;Scientific, Technical, Medical&#125;</small>
+                  <small>Scholarly Publishing Platform</small>
                 </span>
               </Link>
               <TopNav />
@@ -84,30 +84,39 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </header>
           <main className="container" style={{ flexGrow: 1 }}>{children}</main>
           <footer className="site-footer">
-            <div className="container footer-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "32px", padding: "40px 0" }}>
-              <div>
-                <p style={{ fontWeight: 700, color: "var(--ink-900)", marginBottom: "16px", fontSize: "1.2rem" }}>STM Journals Platform</p>
-                <p style={{ marginBottom: "16px" }}>Leading the way in Scientific, Technical, and Medical publishing.</p>
-                <p style={{ fontSize: "0.85rem", color: "var(--ink-600)" }}>© 2024 STM Journals Editorial Workspace</p>
+            <div className="container footer-grid">
+              <div className="footer-brand">
+                <p className="footer-title">STM Journals Platform</p>
+                <p>International scholarly publishing infrastructure for transparent editorial and peer-review workflows.</p>
               </div>
               <div>
-                <p style={{ fontWeight: 600, color: "var(--ink-800)", marginBottom: "12px" }}>Platform</p>
-                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <li><Link href="/" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Journals Directory</Link></li>
-                  <li><Link href="/about" style={{ color: "var(--ink-700)", textDecoration: "none" }}>About Us</Link></li>
-                  <li><Link href="/policies" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Policies & Ethics</Link></li>
+                <p className="footer-col-title">Platform</p>
+                <ul className="footer-links">
+                  <li><Link href="/journals">Journals Directory</Link></li>
+                  <li><Link href="/about">About Us</Link></li>
+                  <li><Link href="/policies">Policies & Ethics</Link></li>
                 </ul>
               </div>
               <div>
-                <p style={{ fontWeight: 600, color: "var(--ink-800)", marginBottom: "12px" }}>Information For</p>
-                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <li><Link href="/authors" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Authors</Link></li>
-                  <li><Link href="/readers" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Readers</Link></li>
-                  <li><Link href="/editors" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Editors</Link></li>
-                  <li><Link href="/subscribers" style={{ color: "var(--ink-700)", textDecoration: "none" }}>Subscribers</Link></li>
+                <p className="footer-col-title">Information For</p>
+                <ul className="footer-links">
+                  <li><Link href="/authors">Author Guidelines</Link></li>
+                  <li><Link href="/readers">Readers</Link></li>
+                  <li><Link href="/editors">Reviewer Guidelines</Link></li>
+                  <li><Link href="/subscribers">Subscribers</Link></li>
+                </ul>
+              </div>
+              <div>
+                <p className="footer-col-title">Journal Links</p>
+                <ul className="footer-links">
+                  <li><Link href="/journals">Browse Journals</Link></li>
+                  <li><Link href="/journals">Editorial Board</Link></li>
+                  <li><Link href="/journals">Archive</Link></li>
+                  <li><Link href="/about">Contact</Link></li>
                 </ul>
               </div>
             </div>
+            <div className="container footer-bottom">© 2026 STM Journals. All rights reserved.</div>
           </footer>
           <div className="bg-orb orb-a" />
           <div className="bg-orb orb-b" />

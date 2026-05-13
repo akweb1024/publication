@@ -48,12 +48,17 @@ export default function TopNav() {
       <div className="mobile-nav-wrap" ref={mobileWrapRef}>
         <button
           type="button"
-          className="button button-ghost compact nav-toggle"
+          className="nav-toggle"
           aria-expanded={menuOpen}
           aria-controls="mobile-nav-panel"
           onClick={() => setMenuOpen((value) => !value)}
         >
-          {menuOpen ? "Close" : "Menu"}
+          <span className="sr-only">{menuOpen ? "Close navigation menu" : "Open navigation menu"}</span>
+          <span className={`hamburger ${menuOpen ? "open" : ""}`} aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
         </button>
         <AnimatePresence>
           {menuOpen && (

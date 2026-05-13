@@ -136,6 +136,7 @@ export default function SecuritySettingsPage() {
                   alt="MFA QR code for authenticator setup"
                   width={180}
                   height={180}
+                  unoptimized
                   style={{ borderRadius: 10, border: "1px solid var(--line)", background: "#fff" }}
                 />
                 <small className="muted">Scan this QR code with your authenticator app.</small>

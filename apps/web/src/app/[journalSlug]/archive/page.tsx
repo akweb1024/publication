@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { cache } from "react";
 import JournalNav from "../../../components/JournalNav";
-import Breadcrumbs from "../../../components/Breadcrumbs";
 import { getJournal, listIssueArticles, listIssues, listVolumes } from "../../../lib/api";
 
 const SITE_BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -33,8 +32,15 @@ export async function generateMetadata({ params }: { params: Promise<{ journalSl
   };
 }
 
-export default async function ArchivePage({ params }: { params: Promise<{ journalSlug: string }> }) {
+export default async function ArchivePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ journalSlug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { journalSlug } = await params;
+  const resolvedSearchParams = (await searchParams) ?? {};
   const journal = await getJournal(journalSlug);
   const [volumes, issues] = await Promise.all([getVolumes(journalSlug), getIssues(journalSlug)]);
   const publishedIssues = issues.filter((issue) => issue.status === "PUBLISHED");
@@ -51,6 +57,11 @@ export default async function ArchivePage({ params }: { params: Promise<{ journa
   const volumeNumberByYear = new Map(yearsAsc.map((year, index) => [year, index + 1]));
   const yearsDesc = [...yearsAsc].sort((left, right) => right - left);
   const yearByVolumeId = new Map(volumes.map((volume) => [volume.id, volume.year]));
+  const query = typeof resolvedSearchParams.q === "string" ? resolvedSearchParams.q.trim().toLowerCase() : "";
+  const selectedYear = typeof resolvedSearchParams.year === "string" ? Number(resolvedSearchParams.year) : NaN;
+  const selectedVolumeNumber = typeof resolvedSearchParams.volume === "string" ? Number(resolvedSearchParams.volume) : NaN;
+  const selectedStatus = typeof resolvedSearchParams.status === "string" ? resolvedSearchParams.status : "published";
+  const sort = typeof resolvedSearchParams.sort === "string" ? resolvedSearchParams.sort : "latest";
   const schema = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
@@ -75,24 +86,15 @@ export default async function ArchivePage({ params }: { params: Promise<{ journa
     <main className="main-stack">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
       <JournalNav journalSlug={journalSlug} journalTitle={journal.title} />
-      <Breadcrumbs
-        items={[
-          { label: "Journals", href: "/journals" },
-          { label: journal.title, href: `/${journalSlug}` },
-          { label: "Archive" },
-        ]}
-      />
-      <section className="hero">
-        <p className="eyebrow" style={{ color: "rgba(234, 244, 255, 0.84)" }}>
-          Archive
-        </p>
-        <h1>{journal.title} — Volumes & Issues</h1>
+      <section className="compact-hero">
+        <p className="section-label">Publication Archive</p>
+        <h2>Volumes & Issues</h2>
         <p>Browse published issues and article metadata by year, volume, and issue.</p>
       </section>
 
       <section className="archive-two-col">
-        <aside className="card archive-filters">
-          <h2 style={{ marginBottom: 10 }}>Search Archive</h2>
+        <aside className="content-card archive-filters">
+          <h3>Search & Filter</h3>
           <form action={`/${journalSlug}/archive`} method="GET">
             <div className="field">
               <label htmlFor="archive-search">Keyword</label>
@@ -100,7 +102,7 @@ export default async function ArchivePage({ params }: { params: Promise<{ journa
             </div>
             <div className="field" style={{ marginTop: 10 }}>
               <label htmlFor="archive-year">Year</label>
-              <select id="archive-year" name="year" className="select">
+              <select id="archive-year" name="year" className="select" defaultValue={Number.isNaN(selectedYear) ? "" : String(selectedYear)}>
                 <option value="">All years</option>
                 {[...new Set(volumes.map((volume) => volume.year))]
                   .sort((left, right) => right - left)
@@ -111,7 +113,12 @@ export default async function ArchivePage({ params }: { params: Promise<{ journa
             </div>
             <div className="field" style={{ marginTop: 10 }}>
               <label htmlFor="archive-volume">Volume</label>
-              <select id="archive-volume" name="volume" className="select">
+              <select
+                id="archive-volume"
+                name="volume"
+                className="select"
+                defaultValue={Number.isNaN(selectedVolumeNumber) ? "" : String(selectedVolumeNumber)}
+              >
                 <option value="">All volumes</option>
                 {yearsDesc.map((year) => (
                   <option key={year} value={volumeNumberByYear.get(year)}>
@@ -120,60 +127,91 @@ export default async function ArchivePage({ params }: { params: Promise<{ journa
                 ))}
               </select>
             </div>
-            <button type="submit" className="button button-primary" style={{ width: "100%", marginTop: "20px" }}>
+            <div className="field" style={{ marginTop: 10 }}>
+              <label htmlFor="archive-status">Issue status</label>
+              <select id="archive-status" name="status" className="select" defaultValue={selectedStatus}>
+                <option value="published">Published only</option>
+                <option value="all">All statuses</option>
+              </select>
+            </div>
+            <div className="field" style={{ marginTop: 10 }}>
+              <label htmlFor="archive-sort">Sort by</label>
+              <select id="archive-sort" name="sort" className="select" defaultValue={sort}>
+                <option value="latest">Latest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="most-articles">Most articles</option>
+              </select>
+            </div>
+            <button type="submit" className="button button-primary" style={{ width: "100%", marginTop: "16px" }}>
               Search
             </button>
+            <a href={`/${journalSlug}/archive`} className="button button-ghost compact" style={{ width: "100%", marginTop: "8px" }}>
+              Reset Filters
+            </a>
           </form>
-          <p className="muted" style={{ marginTop: 16 }}>
-            Tip: use quick links on the right to drill down by volume and issue.
-          </p>
         </aside>
 
         <div className="archive-main">
           {yearsDesc.length === 0 ? (
-            <section className="card">
+            <section className="content-card">
               <p className="muted">No volumes available yet.</p>
             </section>
           ) : (
             <div className="archive-grid">
-              {yearsDesc.map((year) => {
+              {yearsDesc
+                .map((year) => {
                 const volumeIssues = issues
-                  .filter((issue) => yearByVolumeId.get(issue.volumeId) === year && issue.status === "PUBLISHED")
-                  .sort((left, right) => right.number - left.number);
+                  .filter((issue) => {
+                    const matchesYear = yearByVolumeId.get(issue.volumeId) === year;
+                    const volumeNumber = volumeNumberByYear.get(year);
+                    const matchesVolume = Number.isNaN(selectedVolumeNumber) || selectedVolumeNumber === volumeNumber;
+                    const matchesStatus = selectedStatus === "all" || issue.status === "PUBLISHED";
+                    const matchesQuery = !query || [issue.title, `issue ${issue.number}`, issue.publicationDate].filter(Boolean).join(" ").toLowerCase().includes(query);
+                    return matchesYear && matchesVolume && matchesStatus && matchesQuery;
+                  })
+                  .sort((left, right) => {
+                    if (sort === "oldest") return left.number - right.number;
+                    return right.number - left.number;
+                  });
                 const volumeArticleCount = volumeIssues.reduce(
                   (total, issue) => total + (articlesByIssueId.get(issue.id)?.length ?? 0),
                   0
                 );
+                if (!Number.isNaN(selectedYear) && selectedYear !== year) return null;
+                if (query && volumeIssues.length === 0) return null;
                 return (
-                  <div key={year} className="card archive-volume-tabular">
+                  <article key={year} className="content-card archive-volume-tabular">
                     <div className="archive-volume-header">
-                      <strong>Volume {volumeNumberByYear.get(year)} ({year})</strong>
-                      <span> : {volumeArticleCount} Articles</span>
+                      <div>
+                        <p className="metadata-text">Volume {volumeNumberByYear.get(year)}</p>
+                        <h3>{year}</h3>
+                      </div>
+                      <div className="volume-stat-stack">
+                        <span>{volumeIssues.length} Issue(s)</span>
+                        <span>{volumeArticleCount} Article(s)</span>
+                        <span className="metadata-pill">Published</span>
+                      </div>
                     </div>
-                    
                     {volumeIssues.length === 0 ? (
                       <div className="archive-issues-empty">No published issues in this volume yet.</div>
                     ) : (
-                      <div className="archive-issues-grid">
+                      <div className="archive-issue-list">
                         {volumeIssues.map((issue) => (
-                          <Link 
-                            key={issue.id} 
-                            href={`/${journalSlug}/archive/issues/${issue.id}`} 
-                            className="archive-issue-cell"
-                          >
-                            <span className="archive-issue-title">
-                              Issue {issue.number} <span aria-hidden="true">&rarr;</span>
-                            </span>
-                            <span className="archive-issue-meta">
+                          <Link key={issue.id} href={`/${journalSlug}/archive/issues/${issue.id}`} className="issue-row">
+                            <span className="issue-row-title">Issue {issue.number}</span>
+                            <span className="issue-row-meta">
+                              {issue.publicationDate ? new Date(issue.publicationDate).toLocaleDateString() : "Date TBA"} •{" "}
                               {articlesByIssueId.get(issue.id)?.length ?? 0} Articles
                             </span>
+                            <span className="issue-row-action">View Issue</span>
                           </Link>
                         ))}
                       </div>
                     )}
-                  </div>
+                  </article>
                 );
-              })}
+              })
+                .filter(Boolean)}
             </div>
           )}
         </div>

@@ -50,21 +50,10 @@ export default function ApiHealthBadge() {
   }, [state]);
 
   return (
-    <span className="health-badge" title={latencyMs ? `${latencyMs}ms` : meta.label} style={{ background: "rgba(255, 255, 255, 0.4)", border: "1px solid var(--line)" }}>
-      <span className="health-dot" style={{ 
-        background: meta.color,
-        boxShadow: `0 0 8px ${meta.color}`,
-        animation: state === "healthy" ? "pulse 2s infinite" : "none"
-      }} />
-      <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>{meta.label}</span>
-      {latencyMs !== null ? <small style={{ marginLeft: "4px", opacity: 0.6 }}>({latencyMs}ms)</small> : null}
-      <style jsx>{`
-        @keyframes pulse {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.2); opacity: 0.7; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-      `}</style>
+    <span className="health-badge" title={latencyMs ? `${latencyMs}ms` : meta.label}>
+      <span className="health-dot" style={{ background: meta.color }} />
+      <span className="health-text">{meta.label}</span>
+      {latencyMs !== null ? <small className="health-latency">{latencyMs}ms</small> : null}
     </span>
   );
 }
