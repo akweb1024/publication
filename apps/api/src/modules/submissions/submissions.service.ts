@@ -1,14 +1,12 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import * as prismaClient from "@prisma/client";
 import type { JournalRole as JournalRoleType } from "@prisma/client";
-import { PrismaService } from "../prisma/prisma.service.js";
+import { EDITOR_ROLES, prismaEnum } from "@pub/shared";
 import crypto from "node:crypto";
+import { JournalResolverService } from "../journal-resolver/journal-resolver.service.js";
+import { PrismaService } from "../prisma/prisma.service.js";
 import { StorageService } from "../storage/storage.service.js";
 
-const { JournalRole, SubmissionStatus } = prismaClient as {
-  JournalRole: typeof import("@prisma/client").JournalRole;
-  SubmissionStatus: typeof import("@prisma/client").SubmissionStatus;
-};
+const { SubmissionStatus } = prismaEnum;
 
 function trackingCodeFromSlug(slug: string) {
   const code = slug.replace(/[^a-z0-9]/gi, "").toUpperCase();
@@ -19,12 +17,12 @@ function trackingCodeFromSlug(slug: string) {
 export class SubmissionsService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(StorageService) private readonly storage: StorageService
-  ) {}
+    @Inject(StorageService) private readonly storage: StorageService,
+    @Inject(JournalResolverService) private readonly journalResolver: JournalResolverService
+  ) { }
 
   async createDraft(journalSlug: string, submitterUserId: string) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true, slug: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug, { id: true, slug: true });
 
     const fileSet = await this.prisma.fileSet.create({
       data: {
@@ -46,8 +44,7 @@ export class SubmissionsService {
   }
 
   async listMine(journalSlug: string, submitterUserId: string) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     const items = await this.prisma.submission.findMany({
       where: { journalId: journal.id, submitterUserId },
       select: { id: true, status: true, trackingNumber: true, manuscriptTitle: true, createdAt: true, submittedAt: true },
@@ -68,15 +65,8 @@ export class SubmissionsService {
     if (!submission) throw new NotFoundException("Submission not found");
 
     const isSubmitter = submission.submitterUserId === userId;
-    const editorRoles: JournalRoleType[] = [
-      JournalRole.JOURNAL_ADMIN,
-      JournalRole.EDITOR_IN_CHIEF,
-      JournalRole.MANAGING_EDITOR,
-      JournalRole.SECTION_EDITOR,
-      JournalRole.ASSOCIATE_EDITOR,
-    ];
     const hasEditorialRole = !!(await this.prisma.journalRoleAssignment.findFirst({
-      where: { journalId: submission.journalId, userId, role: { in: editorRoles } },
+      where: { journalId: submission.journalId, userId, role: { in: EDITOR_ROLES } },
       select: { id: true },
     }));
 
@@ -157,8 +147,7 @@ export class SubmissionsService {
 
     const now = new Date();
     const year = now.getUTCFullYear();
-    const journal = await this.prisma.journal.findUnique({ where: { id: submission.journalId }, select: { slug: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(submission.journal.slug);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const seq = await tx.submissionSequence.upsert({

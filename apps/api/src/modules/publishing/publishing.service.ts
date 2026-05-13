@@ -1,29 +1,19 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import * as prismaClient from "@prisma/client";
 import type { ArticleStatus as ArticleStatusType, JournalRole as JournalRoleType } from "@prisma/client";
+import { EDITOR_ROLES, prismaEnum } from "@pub/shared";
+import { JournalResolverService } from "../journal-resolver/journal-resolver.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { EmailQueueService } from "../queues/queues.service.js";
 
-const { ArticleStatus, JournalRole } = prismaClient as {
-  ArticleStatus: typeof import("@prisma/client").ArticleStatus;
-  JournalRole: typeof import("@prisma/client").JournalRole;
-};
-
-const EDITOR_ROLES: JournalRoleType[] = [
-  JournalRole.JOURNAL_ADMIN,
-  JournalRole.EDITOR_IN_CHIEF,
-  JournalRole.MANAGING_EDITOR,
-  JournalRole.SECTION_EDITOR,
-  JournalRole.ASSOCIATE_EDITOR,
-  JournalRole.PRODUCTION_EDITOR,
-];
+const { ArticleStatus } = prismaEnum;
 
 @Injectable()
 export class PublishingService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(EmailQueueService) private readonly emailQueue: EmailQueueService
-  ) {}
+    @Inject(EmailQueueService) private readonly emailQueue: EmailQueueService,
+    @Inject(JournalResolverService) private readonly journalResolver: JournalResolverService
+  ) { }
 
   private async ensureEditor(userId: string, journalId: string) {
     const ok = await this.prisma.journalRoleAssignment.findFirst({
@@ -34,8 +24,7 @@ export class PublishingService {
   }
 
   async listVolumes(journalSlug: string) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     const items = await this.prisma.volume.findMany({
       where: { journalId: journal.id },
       select: { id: true, year: true, number: true },
@@ -45,8 +34,7 @@ export class PublishingService {
   }
 
   async createVolume(journalSlug: string, actorUserId: string, year: number, number: number) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     await this.ensureEditor(actorUserId, journal.id);
     const existingForYear = await this.prisma.volume.findFirst({
       where: { journalId: journal.id, year },
@@ -61,8 +49,7 @@ export class PublishingService {
   }
 
   async listIssues(journalSlug: string) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     const items = await this.prisma.issue.findMany({
       where: { journalId: journal.id },
       select: { id: true, volumeId: true, number: true, title: true, status: true, publicationDate: true },
@@ -76,8 +63,7 @@ export class PublishingService {
     actorUserId: string,
     input: { volumeId: string; number: number; title?: string; publicationDate?: Date }
   ) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     await this.ensureEditor(actorUserId, journal.id);
     const volume = await this.prisma.volume.findFirst({ where: { id: input.volumeId, journalId: journal.id }, select: { id: true } });
     if (!volume) throw new BadRequestException("Invalid volumeId");
@@ -124,8 +110,7 @@ export class PublishingService {
   }
 
   async listArticles(journalSlug: string, status?: ArticleStatusType) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     const items = await this.prisma.article.findMany({
       where: { journalId: journal.id, ...(status ? { status } : {}) },
       select: {

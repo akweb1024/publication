@@ -1,19 +1,16 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import * as prismaClient from "@prisma/client";
 import type {
   ReviewRecommendation as ReviewRecommendationType,
   ReviewAssignmentStatus as ReviewAssignmentStatusType,
 } from "@prisma/client";
+import { prismaEnum } from "@pub/shared";
 import { PrismaService } from "../prisma/prisma.service.js";
 
-const { ReviewRecommendation, ReviewAssignmentStatus } = prismaClient as {
-  ReviewRecommendation: typeof import("@prisma/client").ReviewRecommendation;
-  ReviewAssignmentStatus: typeof import("@prisma/client").ReviewAssignmentStatus;
-};
+const { ReviewRecommendation, ReviewAssignmentStatus } = prismaEnum;
 
 @Injectable()
 export class ReviewerService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) { }
 
   async listAssignments(userId: string) {
     const items = await this.prisma.reviewAssignment.findMany({

@@ -1,13 +1,12 @@
 import { ConflictException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
-import * as prismaClient from "@prisma/client";
 import type { JournalRole as JournalRoleType } from "@prisma/client";
+import { EDITOR_ROLES, MFA_REQUIRED_ROLES, EDITORIAL_ROLES, MANAGEMENT_ROLES, prismaEnum, isDefaultAdminEmail, getDefaultAdminEmail } from "@pub/shared";
 import argon2 from "argon2";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { buildOtpAuthUri, generateTotpSecret, verifyTotpCode } from "./totp.util.js";
 
-const { JournalRole } = prismaClient as { JournalRole: typeof import("@prisma/client").JournalRole };
-const DEFAULT_GOOGLE_ADMIN_EMAIL = "amit.rai@celnet.in";
+const { JournalRole } = prismaEnum;
 
 type GoogleTokenInfo = {
   aud?: string;
@@ -16,43 +15,17 @@ type GoogleTokenInfo = {
   name?: string;
 };
 
-const MFA_REQUIRED_ROLES: JournalRoleType[] = [
-  JournalRole.JOURNAL_ADMIN,
-  JournalRole.EDITOR_IN_CHIEF,
-  JournalRole.MANAGING_EDITOR,
-  JournalRole.SECTION_EDITOR,
-  JournalRole.ASSOCIATE_EDITOR,
-  JournalRole.COPYEDITOR,
-  JournalRole.PRODUCTION_EDITOR,
-];
-const EDITORIAL_ROLES: JournalRoleType[] = [
-  JournalRole.JOURNAL_ADMIN,
-  JournalRole.EDITOR_IN_CHIEF,
-  JournalRole.MANAGING_EDITOR,
-  JournalRole.SECTION_EDITOR,
-  JournalRole.ASSOCIATE_EDITOR,
-  JournalRole.COPYEDITOR,
-  JournalRole.PRODUCTION_EDITOR,
-];
-const MANAGEMENT_ROLES: JournalRoleType[] = [
-  JournalRole.JOURNAL_ADMIN,
-  JournalRole.EDITOR_IN_CHIEF,
-  JournalRole.MANAGING_EDITOR,
-];
 
 @Injectable()
 export class AuthService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) { }
 
-  private isDefaultAdminEmail(email: string) {
-    return email.trim().toLowerCase() === DEFAULT_GOOGLE_ADMIN_EMAIL;
-  }
 
   private async ensureDefaultAdminAccess(userId: string) {
     const journals = await this.prisma.journal.findMany({ select: { id: true } });
     if (journals.length === 0) return;
     await this.prisma.journalRoleAssignment.createMany({
-      data: journals.map((journal) => ({ journalId: journal.id, userId, role: JournalRole.JOURNAL_ADMIN })),
+      data: journals.map((journal) => ({ journalId: journal.id, userId, role: prismaEnum.JournalRole.JOURNAL_ADMIN })),
       skipDuplicates: true,
     });
   }
@@ -69,7 +42,7 @@ export class AuthService {
     if (!user) throw new UnauthorizedException("Invalid credentials");
     const ok = await argon2.verify(user.passwordHash, input.password);
     if (!ok) throw new UnauthorizedException("Invalid credentials");
-    if (this.isDefaultAdminEmail(user.email)) {
+    if (isDefaultAdminEmail(user.email)) {
       await this.ensureDefaultAdminAccess(user.id);
     }
     const editorialRole = await this.prisma.journalRoleAssignment.findFirst({
@@ -108,7 +81,7 @@ export class AuthService {
       });
     }
 
-    if (this.isDefaultAdminEmail(user.email)) {
+    if (isDefaultAdminEmail(user.email)) {
       await this.ensureDefaultAdminAccess(user.id);
     }
 
@@ -179,7 +152,7 @@ export class AuthService {
       select: { id: true, email: true, name: true, mfaEnabled: true },
     });
     if (!user) return { authenticated: false };
-    const isDefaultAdmin = this.isDefaultAdminEmail(user.email);
+    const isDefaultAdmin = isDefaultAdminEmail(user.email);
     if (isDefaultAdmin) {
       await this.ensureDefaultAdminAccess(user.id);
     }

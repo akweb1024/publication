@@ -1,9 +1,13 @@
 import { Controller, Get, Inject, NotFoundException, Param } from "@nestjs/common";
+import { JournalResolverService } from "../journal-resolver/journal-resolver.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 @Controller("public")
 export class PublicController {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(JournalResolverService) private readonly journalResolver: JournalResolverService
+  ) { }
 
   @Get("journals")
   async listJournals() {
@@ -28,43 +32,35 @@ export class PublicController {
 
   @Get("journals/:journalSlug")
   async getJournal(@Param("journalSlug") journalSlug: string) {
-    const journal = await this.prisma.journal.findFirst({
-      where: { status: "LIVE", slug: journalSlug },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        description: true,
-        issnPrint: true,
-        issnOnline: true,
-        reviewModel: true,
-        timezone: true,
-        requiredPolicyKeys: true,
-        volumes: {
-          orderBy: [{ year: "desc" }, { number: "desc" }],
-          take: 5,
-          select: { id: true, year: true, number: true },
-        },
-        issues: {
-          where: { status: "PUBLISHED" },
-          orderBy: [{ publicationDate: "desc" }, { createdAt: "desc" }],
-          take: 10,
-          select: { id: true, number: true, title: true, publicationDate: true, volumeId: true },
-        },
+    const journal = await this.journalResolver.resolveSlugWithStatus(journalSlug, "LIVE", {
+      id: true,
+      slug: true,
+      title: true,
+      description: true,
+      issnPrint: true,
+      issnOnline: true,
+      reviewModel: true,
+      timezone: true,
+      requiredPolicyKeys: true,
+      volumes: {
+        orderBy: [{ year: "desc" }, { number: "desc" }],
+        take: 5,
+        select: { id: true, year: true, number: true },
+      },
+      issues: {
+        where: { status: "PUBLISHED" },
+        orderBy: [{ publicationDate: "desc" }, { createdAt: "desc" }],
+        take: 10,
+        select: { id: true, number: true, title: true, publicationDate: true, volumeId: true },
       },
     });
 
-    if (!journal) throw new NotFoundException("Journal not found");
     return journal;
   }
 
   @Get("journals/:journalSlug/policies")
   async getJournalPolicies(@Param("journalSlug") journalSlug: string) {
-    const journal = await this.prisma.journal.findFirst({
-      where: { status: "LIVE", slug: journalSlug },
-      select: { id: true, slug: true, title: true },
-    });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlugWithStatus(journalSlug, "LIVE", { id: true, slug: true, title: true });
 
     const docs = await this.prisma.policyDocument.findMany({
       where: { journalId: journal.id },

@@ -2,7 +2,8 @@ import { Global, Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
-import { EmailQueueService, QUEUE_EMAIL } from "./queues.service.js";
+import { QUEUE_EMAIL } from "@pub/shared";
+import { EmailQueueService } from "./queues.service.js";
 
 @Global()
 @Module({
@@ -24,4 +25,4 @@ import { EmailQueueService, QUEUE_EMAIL } from "./queues.service.js";
   ],
   exports: ["REDIS_CONNECTION", "EMAIL_QUEUE", EmailQueueService],
 })
-export class QueuesModule {}
+export class QueuesModule { }

@@ -1,13 +1,14 @@
 import { Body, Controller, Get, Inject, NotFoundException, Param, Post, UseGuards } from "@nestjs/common";
-import * as prismaClient from "@prisma/client";
+import { prismaEnum } from "@pub/shared";
 import { z } from "zod";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { JournalRoleGuard } from "../auth/journal-role.guard.js";
 import { RequireJournalRoles } from "../auth/journal-role.guard.js";
 import { SessionGuard } from "../auth/session.guard.js";
+import { JournalResolverService } from "../journal-resolver/journal-resolver.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
-const { JournalRole } = prismaClient as { JournalRole: typeof import("@prisma/client").JournalRole };
+const { JournalRole } = prismaEnum;
 
 const CreatePolicyVersionDto = z.object({
   effectiveFrom: z.string().datetime(),
@@ -22,12 +23,14 @@ const ActivatePolicyVersionDto = z.object({
 
 @Controller("journals/:journalSlug/policies")
 export class PoliciesController {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(JournalResolverService) private readonly journalResolver: JournalResolverService
+  ) { }
 
   @Get()
   async list(@Param("journalSlug") journalSlug: string) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
 
     const docs = await this.prisma.policyDocument.findMany({
       where: { journalId: journal.id },
@@ -64,11 +67,7 @@ export class PoliciesController {
 
   @Get("active-required")
   async activeRequired(@Param("journalSlug") journalSlug: string) {
-    const journal = await this.prisma.journal.findFirst({
-      where: { slug: journalSlug },
-      select: { id: true, requiredPolicyKeys: true },
-    });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug, { id: true, requiredPolicyKeys: true });
 
     const versions = await this.prisma.policyVersion.findMany({
       where: {
@@ -122,8 +121,7 @@ export class PoliciesController {
     @CurrentUser() user: any
   ) {
     const dto = CreatePolicyVersionDto.parse(body);
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
 
     const doc =
       (await this.prisma.policyDocument.findFirst({ where: { journalId: journal.id, key }, select: { id: true } })) ??
@@ -174,8 +172,7 @@ export class PoliciesController {
   ) {
     const dto = ActivatePolicyVersionDto.parse(body);
     const versionNumber = Number(n);
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
 
     const doc = await this.prisma.policyDocument.findFirst({ where: { journalId: journal.id, key }, select: { id: true } });
     if (!doc) throw new NotFoundException("Policy not found");

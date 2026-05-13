@@ -1,8 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Queue } from "bullmq";
 import { z } from "zod";
-
-export const QUEUE_EMAIL = "email";
+import { QUEUE_EMAIL, type EmailJob } from "@pub/shared";
 
 const EmailJobSchema = z.object({
   to: z.array(z.string().email()).min(1),
@@ -10,11 +9,9 @@ const EmailJobSchema = z.object({
   html: z.string().min(1),
 });
 
-export type EmailJob = z.infer<typeof EmailJobSchema>;
-
 @Injectable()
 export class EmailQueueService {
-  constructor(@Inject("EMAIL_QUEUE") private readonly emailQueue: Queue) {}
+  constructor(@Inject("EMAIL_QUEUE") private readonly emailQueue: Queue) { }
 
   async enqueueEmail(job: EmailJob) {
     const payload = EmailJobSchema.parse(job);

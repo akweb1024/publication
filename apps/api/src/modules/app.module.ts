@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { HealthModule } from "./health/health.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
 import { AuthModule } from "./auth/auth.module.js";
+import { JournalResolverModule } from "./journal-resolver/journal-resolver.module.js";
 import { JournalsModule } from "./journals/journals.module.js";
 import { PoliciesModule } from "./policies/policies.module.js";
 import { QueuesModule } from "./queues/queues.module.js";
@@ -22,6 +23,7 @@ import { PublicModule } from "./public/public.module.js";
       envFilePath: ["../../.env.local", "../../.env", ".env.local", ".env"],
     }),
     PrismaModule,
+    JournalResolverModule,
     QueuesModule,
     HealthModule,
     AuthModule,
@@ -37,4 +39,4 @@ import { PublicModule } from "./public/public.module.js";
     PublicModule
   ],
 })
-export class AppModule {}
+export class AppModule { }

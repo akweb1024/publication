@@ -1,13 +1,13 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable, NotFoundException, SetMetadata } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { Reflector } from "@nestjs/core";
-import * as prismaClient from "@prisma/client";
 import type { JournalRole as JournalRoleType } from "@prisma/client";
+import { prismaEnum, isDefaultAdminEmail } from "@pub/shared";
+import { JournalResolverService } from "../journal-resolver/journal-resolver.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 const META_KEY = "journalRoles";
-const DEFAULT_GOOGLE_ADMIN_EMAIL = "amit.rai@celnet.in";
-const { JournalRole } = prismaClient as { JournalRole: typeof import("@prisma/client").JournalRole };
+const { JournalRole } = prismaEnum;
 
 export const RequireJournalRoles = (...roles: JournalRoleType[]) => SetMetadata(META_KEY, roles);
 
@@ -15,8 +15,9 @@ export const RequireJournalRoles = (...roles: JournalRoleType[]) => SetMetadata(
 export class JournalRoleGuard implements CanActivate {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(JournalResolverService) private readonly journalResolver: JournalResolverService,
     @Inject(Reflector) private readonly reflector: Reflector
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext) {
     const handler = context.getHandler();
@@ -27,13 +28,12 @@ export class JournalRoleGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<FastifyRequest>();
     const user = req.currentUser;
     if (!user) throw new ForbiddenException();
-    if (user.email?.toLowerCase() === DEFAULT_GOOGLE_ADMIN_EMAIL) return true;
+    if (isDefaultAdminEmail(user.email)) return true;
 
     const journalSlug = (req.params as any)?.journalSlug as string | undefined;
     if (!journalSlug) throw new ForbiddenException("journalSlug param is required for role enforcement");
 
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
 
     const assignment = await this.prisma.journalRoleAssignment.findFirst({
       where: { journalId: journal.id, userId: user.id, role: { in: required } },

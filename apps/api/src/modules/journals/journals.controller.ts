@@ -1,28 +1,23 @@
 import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { HeadBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import { Client as PgClient } from "pg";
-import * as prismaClient from "@prisma/client";
 import type {
   DataSyncRunStatus as DataSyncRunStatusType,
   JournalRole as JournalRoleType,
   StorageProvider as StorageProviderType,
   StorageTarget as StorageTargetType,
 } from "@prisma/client";
+import { SETTINGS_ROLES, prismaEnum, isDefaultAdminEmail, getDefaultAdminEmail } from "@pub/shared";
 import { z } from "zod";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
+import { JournalResolverService } from "../journal-resolver/journal-resolver.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { ConfigService } from "@nestjs/config";
 import { decryptJson, encryptJson } from "../storage/secret-crypto.js";
 import { StorageService } from "../storage/storage.service.js";
 
-const { DataSyncRunStatus, JournalRole, StorageProvider, StorageTarget } = prismaClient as {
-  DataSyncRunStatus: typeof import("@prisma/client").DataSyncRunStatus;
-  JournalRole: typeof import("@prisma/client").JournalRole;
-  StorageProvider: typeof import("@prisma/client").StorageProvider;
-  StorageTarget: typeof import("@prisma/client").StorageTarget;
-};
-const DEFAULT_GOOGLE_ADMIN_EMAIL = "amit.rai@celnet.in";
+const { DataSyncRunStatus, JournalRole, StorageProvider, StorageTarget } = prismaEnum;
 
 const UpdateJournalDto = z.object({
   title: z.string().min(1).optional(),
@@ -44,11 +39,6 @@ const CreateJournalDto = z.object({
   timezone: z.string().min(1).max(120).default("UTC"),
 });
 
-const SETTINGS_ROLES: JournalRoleType[] = [
-  JournalRole.JOURNAL_ADMIN,
-  JournalRole.EDITOR_IN_CHIEF,
-  JournalRole.MANAGING_EDITOR,
-];
 const AuditListQueryDto = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
@@ -105,15 +95,12 @@ export class JournalsController {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) private readonly config: ConfigService,
-    @Inject(StorageService) private readonly storage: StorageService
-  ) {}
-
-  private isDefaultAdminEmail(email: string | null | undefined) {
-    return (email ?? "").trim().toLowerCase() === DEFAULT_GOOGLE_ADMIN_EMAIL;
-  }
+    @Inject(StorageService) private readonly storage: StorageService,
+    @Inject(JournalResolverService) private readonly journalResolver: JournalResolverService
+  ) { }
 
   private async assertCanManagePlatform(user: { id: string; email?: string | null }) {
-    if (this.isDefaultAdminEmail(user.email)) return;
+    if (isDefaultAdminEmail(user.email)) return;
     const managementRole = await this.prisma.journalRoleAssignment.findFirst({
       where: { userId: user.id, role: { in: SETTINGS_ROLES } },
       select: { id: true },
@@ -122,8 +109,10 @@ export class JournalsController {
   }
 
   private async ensureDefaultAdminForAllJournals() {
+    const adminEmail = getDefaultAdminEmail();
+    if (!adminEmail) return { ok: false, reason: "DEFAULT_ADMIN_EMAIL not configured", affectedJournals: 0 };
     const defaultAdmin = await this.prisma.user.findUnique({
-      where: { email: DEFAULT_GOOGLE_ADMIN_EMAIL },
+      where: { email: adminEmail },
       select: { id: true },
     });
     if (!defaultAdmin) return { ok: false, reason: "default admin user not found", affectedJournals: 0 };
@@ -221,22 +210,18 @@ export class JournalsController {
 
   @Get(":journalSlug")
   async get(@Param("journalSlug") journalSlug: string) {
-    const journal = await this.prisma.journal.findFirst({
-      where: { slug: journalSlug, status: "LIVE" },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        description: true,
-        timezone: true,
-        reviewModel: true,
-        issnPrint: true,
-        issnOnline: true,
-        brandingJson: true,
-        requiredPolicyKeys: true,
-      },
+    const journal = await this.journalResolver.resolveSlugWithStatus(journalSlug, "LIVE", {
+      id: true,
+      slug: true,
+      title: true,
+      description: true,
+      timezone: true,
+      reviewModel: true,
+      issnPrint: true,
+      issnOnline: true,
+      brandingJson: true,
+      requiredPolicyKeys: true,
     });
-    if (!journal) throw new NotFoundException("Journal not found");
     return journal;
   }
 
@@ -244,8 +229,7 @@ export class JournalsController {
   @Patch(":journalSlug")
   async update(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
     const dto = UpdateJournalDto.parse(body);
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
 
     const role = await this.prisma.journalRoleAssignment.findFirst({
       where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
@@ -297,8 +281,7 @@ export class JournalsController {
   @UseGuards(SessionGuard)
   @Get(":journalSlug/audit-logs")
   async listAuditLogs(@Param("journalSlug") journalSlug: string, @CurrentUser() user: any, @Query("limit") limit?: string) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
 
     const role = await this.prisma.journalRoleAssignment.findFirst({
       where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
@@ -329,8 +312,7 @@ export class JournalsController {
   @UseGuards(SessionGuard)
   @Get(":journalSlug/roles")
   async listRoles(@Param("journalSlug") journalSlug: string, @CurrentUser() user: any) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     const role = await this.prisma.journalRoleAssignment.findFirst({
       where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
       select: { id: true },
@@ -361,8 +343,7 @@ export class JournalsController {
     if (dto.subscriptionStartAt && dto.subscriptionEndAt && new Date(dto.subscriptionStartAt) > new Date(dto.subscriptionEndAt)) {
       throw new BadRequestException("subscriptionStartAt cannot be later than subscriptionEndAt");
     }
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     const adminRole = await this.prisma.journalRoleAssignment.findFirst({
       where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
       select: { id: true },
@@ -403,8 +384,7 @@ export class JournalsController {
   @Post(":journalSlug/roles/remove")
   async removeRole(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
     const dto = AssignRoleDto.parse(body);
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     const adminRole = await this.prisma.journalRoleAssignment.findFirst({
       where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
       select: { id: true },
@@ -421,8 +401,7 @@ export class JournalsController {
   @UseGuards(SessionGuard)
   @Get(":journalSlug/storage-config")
   async getStorageConfig(@Param("journalSlug") journalSlug: string, @CurrentUser() user: any) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     const adminRole = await this.prisma.journalRoleAssignment.findFirst({
       where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
       select: { id: true },
@@ -478,8 +457,7 @@ export class JournalsController {
   @Patch(":journalSlug/storage-config")
   async updateStorageConfig(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
     const dto = UpdateStorageConfigDto.parse(body);
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     const adminRole = await this.prisma.journalRoleAssignment.findFirst({
       where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
       select: { id: true },
@@ -564,8 +542,7 @@ export class JournalsController {
   @Post(":journalSlug/storage-config/test")
   async testStorageConfig(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
     const dto = TestStorageConfigDto.parse(body);
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     const adminRole = await this.prisma.journalRoleAssignment.findFirst({
       where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
       select: { id: true },
@@ -594,8 +571,7 @@ export class JournalsController {
   @Post(":journalSlug/storage-config/simulate")
   async simulateStorageRouting(@Param("journalSlug") journalSlug: string, @Body() body: unknown, @CurrentUser() user: any) {
     const dto = SimulateStorageRoutingDto.parse(body);
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true, slug: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug, { id: true, slug: true });
     const adminRole = await this.prisma.journalRoleAssignment.findFirst({
       where: { journalId: journal.id, userId: user.id, role: { in: SETTINGS_ROLES } },
       select: { id: true },
@@ -835,8 +811,7 @@ export class JournalsController {
   }
 
   private async requireAdminJournalAccess(journalSlug: string, userId: string) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true, slug: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug, { id: true, slug: true });
     const role = await this.prisma.journalRoleAssignment.findFirst({
       where: { journalId: journal.id, userId, role: { in: SETTINGS_ROLES } },
       select: { id: true },

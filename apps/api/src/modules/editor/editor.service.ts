@@ -1,35 +1,23 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import * as prismaClient from "@prisma/client";
 import type {
   DecisionType as DecisionTypeType,
   EditorAssignmentRole as EditorAssignmentRoleType,
-  JournalRole as JournalRoleType,
   SubmissionStatus as SubmissionStatusType,
 } from "@prisma/client";
+import { EDITOR_ROLES, prismaEnum } from "@pub/shared";
+import { JournalResolverService } from "../journal-resolver/journal-resolver.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { EmailQueueService } from "../queues/queues.service.js";
 
-const { DecisionType, EditorAssignmentRole, JournalRole, SubmissionStatus } = prismaClient as {
-  DecisionType: typeof import("@prisma/client").DecisionType;
-  EditorAssignmentRole: typeof import("@prisma/client").EditorAssignmentRole;
-  JournalRole: typeof import("@prisma/client").JournalRole;
-  SubmissionStatus: typeof import("@prisma/client").SubmissionStatus;
-};
-
-const EDITOR_ROLES: JournalRoleType[] = [
-  JournalRole.JOURNAL_ADMIN,
-  JournalRole.EDITOR_IN_CHIEF,
-  JournalRole.MANAGING_EDITOR,
-  JournalRole.SECTION_EDITOR,
-  JournalRole.ASSOCIATE_EDITOR,
-];
+const { DecisionType, EditorAssignmentRole, SubmissionStatus } = prismaEnum;
 
 @Injectable()
 export class EditorService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(EmailQueueService) private readonly emailQueue: EmailQueueService
-  ) {}
+    @Inject(EmailQueueService) private readonly emailQueue: EmailQueueService,
+    @Inject(JournalResolverService) private readonly journalResolver: JournalResolverService
+  ) { }
 
   private async ensureEditor(userId: string, journalId: string) {
     const ok = await this.prisma.journalRoleAssignment.findFirst({
@@ -40,8 +28,7 @@ export class EditorService {
   }
 
   async queue(journalSlug: string, userId: string, status?: SubmissionStatusType) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     await this.ensureEditor(userId, journal.id);
 
     const items = await this.prisma.submission.findMany({
@@ -104,12 +91,11 @@ export class EditorService {
   }
 
   async candidates(journalSlug: string, userId: string) {
-    const journal = await this.prisma.journal.findFirst({ where: { slug: journalSlug }, select: { id: true } });
-    if (!journal) throw new NotFoundException("Journal not found");
+    const journal = await this.journalResolver.resolveSlug(journalSlug);
     await this.ensureEditor(userId, journal.id);
 
     const assignments = await this.prisma.journalRoleAssignment.findMany({
-      where: { journalId: journal.id, role: { in: [...EDITOR_ROLES, JournalRole.REVIEWER] } },
+      where: { journalId: journal.id, role: { in: [...EDITOR_ROLES, prismaEnum.JournalRole.REVIEWER] } },
       select: {
         role: true,
         user: { select: { id: true, name: true, email: true } },
@@ -121,7 +107,7 @@ export class EditorService {
     const reviewerMap = new Map<string, { id: string; name: string; email: string }>();
 
     for (const assignment of assignments) {
-      if (assignment.role === JournalRole.REVIEWER) {
+      if (assignment.role === prismaEnum.JournalRole.REVIEWER) {
         reviewerMap.set(assignment.user.id, {
           id: assignment.user.id,
           name: assignment.user.name,

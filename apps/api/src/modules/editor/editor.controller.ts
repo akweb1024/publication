@@ -1,15 +1,12 @@
 import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from "@nestjs/common";
-import * as prismaClient from "@prisma/client";
 import type { SubmissionStatus } from "@prisma/client";
+import { prismaEnum } from "@pub/shared";
 import { z } from "zod";
 import { CurrentUser } from "../auth/current-user.decorator.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { EditorService } from "./editor.service.js";
 
-const { DecisionType, EditorAssignmentRole } = prismaClient as {
-  DecisionType: typeof import("@prisma/client").DecisionType;
-  EditorAssignmentRole: typeof import("@prisma/client").EditorAssignmentRole;
-};
+const { DecisionType, EditorAssignmentRole } = prismaEnum;
 
 const AssignEditorDto = z.object({
   userId: z.string().uuid(),
@@ -30,7 +27,7 @@ const DecisionDto = z.object({
 
 @Controller()
 export class EditorController {
-  constructor(@Inject(EditorService) private readonly editor: EditorService) {}
+  constructor(@Inject(EditorService) private readonly editor: EditorService) { }
 
   @UseGuards(SessionGuard)
   @Get("journals/:journalSlug/editor/queue")
