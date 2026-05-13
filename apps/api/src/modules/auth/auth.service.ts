@@ -1,6 +1,11 @@
 import { ConflictException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import type { JournalRole as JournalRoleType } from "@prisma/client";
-import { EDITOR_ROLES, MFA_REQUIRED_ROLES, EDITORIAL_ROLES, MANAGEMENT_ROLES, prismaEnum, isDefaultAdminEmail, getDefaultAdminEmail } from "@pub/shared";
+import {
+  EDITOR_ROLES, MFA_REQUIRED_ROLES, EDITORIAL_ROLES, MANAGEMENT_ROLES,
+  prismaEnum, isDefaultAdminEmail, getDefaultAdminEmail,
+  ROLE_HIERARCHY_LEVEL, ROLE_TIER, ROLE_LABELS, TIER_LABELS,
+  highestTier, highestLevel, type RoleTier,
+} from "@pub/shared";
 import argon2 from "argon2";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -162,26 +167,53 @@ export class AuthService {
       select: { role: true, journal: { select: { slug: true, title: true } } },
     });
     const roles = Array.from(new Set(assignments.map((item) => item.role)));
-    const hasEditorial = isDefaultAdmin || roles.some((role) => EDITORIAL_ROLES.includes(role));
-    const hasManagement = isDefaultAdmin || roles.some((role) => MANAGEMENT_ROLES.includes(role));
-    const hasReviewer = roles.includes(JournalRole.REVIEWER);
-    const hasSubscriber = roles.includes(JournalRole.SUBSCRIBER);
+    const effectiveRoles = isDefaultAdmin && !roles.includes(JournalRole.JOURNAL_ADMIN)
+      ? [JournalRole.JOURNAL_ADMIN, ...roles] as JournalRoleType[]
+      : roles;
+
+    // ── Hierarchy-derived capabilities ──
+    const tier = highestTier(effectiveRoles);
+    const level = highestLevel(effectiveRoles);
+    const isProduction = effectiveRoles.some((r) => ROLE_TIER[r] === "production");
+    const isSubscriber = effectiveRoles.includes(JournalRole.SUBSCRIBER);
+    const hasEditorial = isDefaultAdmin || effectiveRoles.some((role) => EDITORIAL_ROLES.includes(role));
+    const hasManagement = isDefaultAdmin || effectiveRoles.some((role) => MANAGEMENT_ROLES.includes(role));
+    // Editorial roles (SECTION_EDITOR, ASSOCIATE_EDITOR) inherit REVIEWER;
+    // admin-tier roles override all domain checks.
+    const hasReviewer = effectiveRoles.some((role) =>
+      role === JournalRole.REVIEWER || ROLE_TIER[role] === "admin" || ROLE_TIER[role] === "editorial"
+    );
+    // Publishing: editorial-tier admin override OR production-track roles
+    const hasPublishing = hasEditorial || isProduction;
+
+    // ── Per-journal role with tier metadata ──
+    const journals = assignments.map((item) => ({
+      slug: item.journal.slug,
+      title: item.journal.title,
+      role: item.role,
+      roleLabel: ROLE_LABELS[item.role] ?? item.role,
+      roleTier: ROLE_TIER[item.role],
+      tierLabel: TIER_LABELS[ROLE_TIER[item.role]] ?? ROLE_TIER[item.role],
+    }));
 
     return {
       authenticated: true,
       user,
-      roles: isDefaultAdmin && !roles.includes(JournalRole.JOURNAL_ADMIN) ? [JournalRole.JOURNAL_ADMIN, ...roles] : roles,
+      roles: effectiveRoles,
+      roleTier: tier,
+      roleLevel: level,
+      tierLabel: TIER_LABELS[tier] ?? tier,
       capabilities: {
         canSubmit: true,
         canReview: hasReviewer,
         canEditorial: hasEditorial,
-        canPublishing: hasEditorial,
+        canPublishing: hasPublishing,
         canManageJournal: hasManagement,
         canAudit: hasManagement,
         canSecurity: true,
-        hasRestrictedAccess: hasEditorial || hasSubscriber,
+        hasRestrictedAccess: hasEditorial || isSubscriber,
       },
-      journals: assignments.map((item) => ({ slug: item.journal.slug, title: item.journal.title, role: item.role })),
+      journals,
     };
   }
 }

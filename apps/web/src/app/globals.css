@@ -1096,9 +1096,368 @@ textarea:focus-visible {
   padding: 24px;
 }
 
-.content-card h3 {
+.content-card h3,
+.content-card h4 {
   font-size: 1.25rem;
   margin-bottom: 10px;
+}
+
+/* ── Role Tier Visual System ── */
+
+:root {
+  --tier-admin-color: #4f46e5;
+  --tier-admin-bg: rgba(79, 70, 229, 0.08);
+  --tier-admin-border: rgba(79, 70, 229, 0.25);
+  --tier-editorial-color: #0d9488;
+  --tier-editorial-bg: rgba(13, 148, 136, 0.08);
+  --tier-editorial-border: rgba(13, 148, 136, 0.25);
+  --tier-production-color: #ea580c;
+  --tier-production-bg: rgba(234, 88, 12, 0.08);
+  --tier-production-border: rgba(234, 88, 12, 0.25);
+  --tier-review-color: #a21caf;
+  --tier-review-bg: rgba(162, 28, 175, 0.08);
+  --tier-review-border: rgba(162, 28, 175, 0.25);
+  --tier-support-color: #2563eb;
+  --tier-support-bg: rgba(37, 99, 235, 0.08);
+  --tier-support-border: rgba(37, 99, 235, 0.25);
+  --tier-subscriber-color: #64748b;
+  --tier-subscriber-bg: rgba(100, 116, 139, 0.08);
+  --tier-subscriber-border: rgba(100, 116, 139, 0.25);
+}
+
+/* Role tier chip variants */
+.chip.tier-admin {
+  background: var(--tier-admin-bg);
+  border-color: var(--tier-admin-border);
+  color: var(--tier-admin-color);
+}
+
+.chip.tier-editorial {
+  background: var(--tier-editorial-bg);
+  border-color: var(--tier-editorial-border);
+  color: var(--tier-editorial-color);
+}
+
+.chip.tier-production {
+  background: var(--tier-production-bg);
+  border-color: var(--tier-production-border);
+  color: var(--tier-production-color);
+}
+
+.chip.tier-review {
+  background: var(--tier-review-bg);
+  border-color: var(--tier-review-border);
+  color: var(--tier-review-color);
+}
+
+.chip.tier-support {
+  background: var(--tier-support-bg);
+  border-color: var(--tier-support-border);
+  color: var(--tier-support-color);
+}
+
+.chip.tier-subscriber {
+  background: var(--tier-subscriber-bg);
+  border-color: var(--tier-subscriber-border);
+  color: var(--tier-subscriber-color);
+}
+
+/* Role chip — inherits tier color */
+.role-chip {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.72rem;
+}
+
+.tier-chip {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.chip-small {
+  font-size: 0.66rem;
+  padding: 3px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(248, 250, 252, 0.6);
+  color: var(--ink-600);
+}
+
+/* Tier sidebar chip in AppShell */
+.tier-sidebar-chip {
+  margin-top: 6px;
+  display: inline-block;
+  font-size: 0.72rem;
+}
+
+/* Sidebar nav dot tier coloring */
+.dot.tier-admin {
+  background: var(--tier-admin-color);
+}
+
+.dot.tier-editorial {
+  background: var(--tier-editorial-color);
+}
+
+.dot.tier-production {
+  background: var(--tier-production-color);
+}
+
+.dot.tier-review {
+  background: var(--tier-review-color);
+}
+
+.dot.tier-support {
+  background: var(--tier-support-color);
+}
+
+.dot.tier-subscriber {
+  background: var(--tier-subscriber-color);
+}
+
+/* Tier section blocks on dashboard home */
+.tier-section {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.tier-section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.tier-section.tier-admin::before {
+  background: var(--tier-admin-color);
+}
+
+.tier-section.tier-editorial::before {
+  background: var(--tier-editorial-color);
+}
+
+.tier-section.tier-production::before {
+  background: var(--tier-production-color);
+}
+
+.tier-section.tier-review::before {
+  background: var(--tier-review-color);
+}
+
+.tier-section.tier-support::before {
+  background: var(--tier-support-color);
+}
+
+.tier-section.tier-subscriber::before {
+  background: var(--tier-subscriber-color);
+}
+
+.tier-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.tier-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.tier-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid;
+}
+
+.tier-section.tier-admin .tier-badge {
+  background: var(--tier-admin-bg);
+  border-color: var(--tier-admin-border);
+  color: var(--tier-admin-color);
+}
+
+.tier-section.tier-editorial .tier-badge {
+  background: var(--tier-editorial-bg);
+  border-color: var(--tier-editorial-border);
+  color: var(--tier-editorial-color);
+}
+
+.tier-section.tier-production .tier-badge {
+  background: var(--tier-production-bg);
+  border-color: var(--tier-production-border);
+  color: var(--tier-production-color);
+}
+
+.tier-section.tier-review .tier-badge {
+  background: var(--tier-review-bg);
+  border-color: var(--tier-review-border);
+  color: var(--tier-review-color);
+}
+
+.tier-section.tier-support .tier-badge {
+  background: var(--tier-support-bg);
+  border-color: var(--tier-support-border);
+  color: var(--tier-support-color);
+}
+
+.tier-section.tier-subscriber .tier-badge {
+  background: var(--tier-subscriber-bg);
+  border-color: var(--tier-subscriber-border);
+  color: var(--tier-subscriber-color);
+}
+
+.tier-card {
+  border-radius: var(--radius-md);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tier-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Role identity banner */
+.role-identity-banner {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.role-identity-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.role-identity-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.role-identity-secondary {
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Hierarchy explainer */
+.hierarchy-explainer {
+  background: rgba(248, 250, 252, 0.7);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+
+.hierarchy-explainer h4 {
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+
+.hierarchy-chain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.hierarchy-node {
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.hierarchy-node.has-arrow::after {
+  content: "→";
+  margin-left: 10px;
+  color: var(--ink-600);
+  font-weight: 400;
+}
+
+.hierarchy-node.tier-admin {
+  background: var(--tier-admin-bg);
+  border-color: var(--tier-admin-border);
+  color: var(--tier-admin-color);
+}
+
+.hierarchy-node.tier-editorial {
+  background: var(--tier-editorial-bg);
+  border-color: var(--tier-editorial-border);
+  color: var(--tier-editorial-color);
+}
+
+.hierarchy-node.tier-production {
+  background: var(--tier-production-bg);
+  border-color: var(--tier-production-border);
+  color: var(--tier-production-color);
+}
+
+.hierarchy-node.tier-review {
+  background: var(--tier-review-bg);
+  border-color: var(--tier-review-border);
+  color: var(--tier-review-color);
+}
+
+.hierarchy-node.tier-support {
+  background: var(--tier-support-bg);
+  border-color: var(--tier-support-border);
+  color: var(--tier-support-color);
+}
+
+.hierarchy-node.tier-subscriber {
+  background: var(--tier-subscriber-bg);
+  border-color: var(--tier-subscriber-border);
+  color: var(--tier-subscriber-color);
+}
+
+/* Nav tier groups in top nav */
+.nav-tier-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-tier-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-600);
+  padding: 4px 14px 2px;
+}
+
+.nav-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(148, 163, 184, 0.35);
+  margin: 0 4px;
+  align-self: center;
 }
 
 .metadata-text {
@@ -1344,6 +1703,7 @@ textarea:focus-visible {
 }
 
 @media (max-width: 980px) {
+
   .archive-two-col,
   .two-col,
   .three-col,
@@ -1660,8 +2020,13 @@ textarea:focus-visible {
 }
 
 @keyframes skeleton-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .confirm-modal-overlay {

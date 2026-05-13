@@ -2,13 +2,19 @@ import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable, 
 import type { FastifyRequest } from "fastify";
 import { Reflector } from "@nestjs/core";
 import type { JournalRole as JournalRoleType } from "@prisma/client";
-import { prismaEnum, isDefaultAdminEmail } from "@pub/shared";
+import { prismaEnum, isDefaultAdminEmail, anyRoleSatisfiesAny } from "@pub/shared";
 import { JournalResolverService } from "../journal-resolver/journal-resolver.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 const META_KEY = "journalRoles";
-const { JournalRole } = prismaEnum;
 
+/**
+ * Decorator that specifies which journal roles are required to access
+ * a handler or controller. Uses hierarchical role checking — a higher-
+ * authority role automatically satisfies a requirement for a lower role
+ * in the same authority chain, and admin-tier roles override all
+ * domain-specific checks.
+ */
 export const RequireJournalRoles = (...roles: JournalRoleType[]) => SetMetadata(META_KEY, roles);
 
 @Injectable()
@@ -35,11 +41,16 @@ export class JournalRoleGuard implements CanActivate {
 
     const journal = await this.journalResolver.resolveSlug(journalSlug);
 
-    const assignment = await this.prisma.journalRoleAssignment.findFirst({
-      where: { journalId: journal.id, userId: user.id, role: { in: required } },
-      select: { id: true },
+    // Fetch ALL roles the user holds in this journal for hierarchical check
+    const assignments = await this.prisma.journalRoleAssignment.findMany({
+      where: { journalId: journal.id, userId: user.id },
+      select: { role: true },
     });
-    if (!assignment) throw new ForbiddenException("Insufficient role");
-    return true;
+    const heldRoles = assignments.map((a) => a.role);
+
+    // Use hierarchical comparison: any held role satisfies any required role
+    if (anyRoleSatisfiesAny(heldRoles, required)) return true;
+
+    throw new ForbiddenException("Insufficient role");
   }
 }

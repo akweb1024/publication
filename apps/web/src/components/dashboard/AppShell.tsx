@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import Breadcrumbs from "../Breadcrumbs";
 import { apiJson } from "../../lib/clientApi";
 
+type RoleTier = "admin" | "editorial" | "production" | "review" | "support" | "subscriber";
+
 type BreadcrumbItem = { label: string; href?: string };
 type JournalOption = { id: string; slug: string; title: string };
 
@@ -27,6 +29,8 @@ type AppShellProps = {
 
 type NavContext = {
   authenticated: boolean;
+  roleTier?: RoleTier;
+  tierLabel?: string;
   capabilities?: {
     canSubmit: boolean;
     canReview: boolean;
@@ -38,47 +42,53 @@ type NavContext = {
   };
 };
 
-type NavItem = { label: string; href: string; roles?: Array<keyof NonNullable<NavContext["capabilities"]>> };
-type NavGroup = { label: string; items: NavItem[] };
+type NavItem = { label: string; href: string; capability?: string; tier: RoleTier };
+type NavGroup = { tier: RoleTier; label: string; items: NavItem[] };
 
 const NAV_GROUPS: NavGroup[] = [
-  { label: "Overview", items: [{ label: "Dashboard", href: "/dashboard" }] },
   {
-    label: "Journals",
-    items: [
-      { label: "Journal Profile", href: "/dashboard/journals", roles: ["canManageJournal"] },
-      { label: "Policies", href: "/dashboard/journals", roles: ["canManageJournal"] },
-      { label: "Focus & Scope", href: "/dashboard/journals", roles: ["canManageJournal"] },
-      { label: "Editorial Board", href: "/dashboard/journals", roles: ["canManageJournal"] },
-    ],
+    tier: "admin", label: "Administration", items: [
+      { label: "Journal Profile", href: "/dashboard/journals", capability: "canManageJournal", tier: "admin" },
+      { label: "Policies", href: "/dashboard/journals", capability: "canManageJournal", tier: "admin" },
+      { label: "Focus & Scope", href: "/dashboard/journals", capability: "canManageJournal", tier: "admin" },
+      { label: "Editorial Board", href: "/dashboard/journals", capability: "canManageJournal", tier: "admin" },
+      { label: "Storage Settings", href: "/dashboard/storage", capability: "canManageJournal", tier: "admin" },
+      { label: "Audit Logs", href: "/dashboard/audit", capability: "canAudit", tier: "admin" },
+      { label: "Security", href: "/dashboard/security", capability: "canSecurity", tier: "admin" },
+    ]
   },
   {
-    label: "Manuscripts",
-    items: [
-      { label: "New Submissions", href: "/dashboard/submissions", roles: ["canSubmit", "canEditorial"] },
-      { label: "Under Review", href: "/dashboard/editor", roles: ["canEditorial"] },
-      { label: "Reviewer Queue", href: "/dashboard/reviewer", roles: ["canReview"] },
-    ],
+    tier: "editorial", label: "Editorial", items: [
+      { label: "New Submissions", href: "/dashboard/submissions", capability: "canSubmit", tier: "editorial" },
+      { label: "Under Review", href: "/dashboard/editor", capability: "canEditorial", tier: "editorial" },
+    ]
   },
   {
-    label: "Publishing",
-    items: [
-      { label: "Publishing Desk", href: "/dashboard/publishing", roles: ["canPublishing"] },
-      { label: "Archive & Issues", href: "/dashboard/publishing", roles: ["canPublishing"] },
-    ],
+    tier: "production", label: "Production & Publishing", items: [
+      { label: "Publishing Desk", href: "/dashboard/publishing", capability: "canPublishing", tier: "production" },
+      { label: "Archive & Issues", href: "/dashboard/publishing", capability: "canPublishing", tier: "production" },
+    ]
   },
   {
-    label: "Storage & Sync",
-    items: [{ label: "Storage Settings", href: "/dashboard/storage", roles: ["canManageJournal"] }],
+    tier: "review", label: "Peer Review", items: [
+      { label: "Reviewer Queue", href: "/dashboard/reviewer", capability: "canReview", tier: "review" },
+    ]
   },
   {
-    label: "Audit & Admin",
-    items: [
-      { label: "Audit Logs", href: "/dashboard/audit", roles: ["canAudit"] },
-      { label: "Security", href: "/dashboard/security", roles: ["canSecurity"] },
-    ],
+    tier: "support", label: "Author Support", items: [
+      { label: "Submit Manuscript", href: "/dashboard/submissions", capability: "canSubmit", tier: "support" },
+    ]
   },
 ];
+
+const TIER_ACCENT: Record<RoleTier, string> = {
+  admin: "tier-admin",
+  editorial: "tier-editorial",
+  production: "tier-production",
+  review: "tier-review",
+  support: "tier-support",
+  subscriber: "tier-subscriber",
+};
 
 export default function AppShell({
   title,
@@ -106,21 +116,30 @@ export default function AppShell({
 
   const visibleGroups = useMemo(() => {
     const capabilities = navContext?.capabilities;
+    const userTier = navContext?.roleTier ?? "subscriber";
+
+    // Filter groups: show items whose capability matches, plus always show Overview
     return NAV_GROUPS.map((group) => ({
       ...group,
       items: group.items.filter((item) => {
-        if (!item.roles || item.roles.length === 0) return true;
+        if (!item.capability) return true;
         if (!capabilities) return false;
-        return item.roles.some((role) => capabilities[role]);
+        return capabilities[item.capability as keyof typeof capabilities];
       }),
     })).filter((group) => group.items.length > 0);
-  }, [navContext?.capabilities]);
+  }, [navContext?.capabilities, navContext?.roleTier]);
+
+  // Insert Overview group at the top (always visible)
+  const allGroups = useMemo(() => [
+    { tier: "admin" as RoleTier, label: "Overview", items: [{ label: "Dashboard", href: "/dashboard", capability: undefined, tier: "admin" as RoleTier }] },
+    ...visibleGroups,
+  ], [visibleGroups]);
 
   const activeHref = useMemo(() => {
-    const flattened = visibleGroups.flatMap((group) => group.items);
+    const flattened = allGroups.flatMap((group) => group.items);
     const found = flattened.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
     return found?.href ?? "/dashboard";
-  }, [pathname, visibleGroups]);
+  }, [pathname, allGroups]);
 
   return (
     <main className="dashboard-shell" aria-label="Dashboard workspace">
@@ -128,11 +147,16 @@ export default function AppShell({
         <div className="dashboard-brand">
           <p className="eyebrow">STM Workspace</p>
           <h2>Publishing Console</h2>
+          {navContext?.tierLabel ? (
+            <span className={`chip tier-sidebar-chip ${TIER_ACCENT[navContext.roleTier ?? "subscriber"]}`}>
+              {navContext.tierLabel}
+            </span>
+          ) : null}
         </div>
 
         <nav className="dashboard-nav" aria-label="Primary dashboard navigation">
-          {visibleGroups.map((group) => (
-            <div key={group.label} className="dashboard-nav-group">
+          {allGroups.map((group) => (
+            <div key={group.label} className={`dashboard-nav-group ${TIER_ACCENT[group.tier]}`}>
               <p className="dashboard-nav-group-label">{group.label}</p>
               {group.items.map((item) => {
                 const active = item.href === activeHref;
@@ -143,7 +167,7 @@ export default function AppShell({
                     className={`dashboard-nav-item ${active ? "active" : ""}`}
                     onClick={() => setMobileNavOpen(false)}
                   >
-                    <span className="dot" aria-hidden="true" />
+                    <span className={`dot ${TIER_ACCENT[item.tier]}`} aria-hidden="true" />
                     <span>{item.label}</span>
                   </Link>
                 );
@@ -214,13 +238,12 @@ export default function AppShell({
             <p className="eyebrow">Quick Actions</p>
             <div className="dashboard-quick-actions" style={{ marginTop: 10 }}>
               {quickActions.map((action) => {
-                const className = `button compact ${
-                  action.variant === "primary"
+                const className = `button compact ${action.variant === "primary"
                     ? "button-primary"
                     : action.variant === "secondary"
                       ? ""
                       : "button-ghost"
-                }`;
+                  }`;
                 if (action.href) {
                   return (
                     <Link key={`${action.label}-${action.href}`} href={action.href} className={className}>
