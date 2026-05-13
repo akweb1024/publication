@@ -8,6 +8,7 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/api/package.json apps/api/package.json
 COPY packages/db/package.json packages/db/package.json
+COPY packages/shared/package.json packages/shared/package.json
 COPY packages/db/prisma ./packages/db/prisma
 RUN corepack enable && corepack pnpm install --frozen-lockfile
 RUN corepack pnpm --filter @pub/db db:generate
@@ -16,7 +17,9 @@ FROM deps AS builder
 COPY tsconfig.base.json ./
 COPY apps/api ./apps/api
 COPY packages/db ./packages/db
+COPY packages/shared ./packages/shared
 RUN corepack pnpm --filter @pub/db db:generate
+RUN corepack pnpm --filter @pub/shared build
 RUN corepack pnpm --filter @pub/api build
 
 FROM base AS runner
@@ -24,7 +27,10 @@ ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=builder /app/packages/db/prisma ./packages/db/prisma
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
