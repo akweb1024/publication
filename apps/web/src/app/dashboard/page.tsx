@@ -73,6 +73,7 @@ const WORKSPACE_ITEMS: Array<{
   capability: keyof NonNullable<NavContext["capabilities"]>;
 }> = [
     { tier: "admin", href: "/dashboard/journals", title: "Journal Settings", description: "Update journal metadata, branding, ISSNs, and required policy mappings.", capability: "canManageJournal" },
+    { tier: "admin", href: "/dashboard/communications", title: "Communications Center", description: "Manage templates, outbound messages, and notification events.", capability: "canManageJournal" },
     { tier: "admin", href: "/dashboard/storage", title: "Storage Settings", description: "Configure hybrid local and external storage providers.", capability: "canManageJournal" },
     { tier: "admin", href: "/dashboard/audit", title: "Audit Logs", description: "Trace sensitive workflow actions, policy changes, and access decisions.", capability: "canAudit" },
     { tier: "admin", href: "/dashboard/security", title: "Security Center", description: "Manage MFA setup, session hardening, and staff security controls.", capability: "canSecurity" },

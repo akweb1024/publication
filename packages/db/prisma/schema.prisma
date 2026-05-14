@@ -134,6 +134,14 @@ enum MessageDeliveryStatus {
   FAILED
 }
 
+enum NotificationEventStatus {
+  PENDING
+  QUEUED
+  SENT
+  FAILED
+  SKIPPED
+}
+
 enum DataSyncRunStatus {
   SUCCESS
   FAILED
@@ -175,6 +183,9 @@ model Journal {
   issues             Issue[]
   articles           Article[]
   messageThreads     MessageThread[]
+  emailTemplates     EmailTemplate[]
+  notificationPreferences NotificationPreference[]
+  notificationEvents NotificationEvent[]
   auditLogs          AuditLog[]
   submissionSequences SubmissionSequence[]
   requiredPolicyKeys String[] @default([])
@@ -265,6 +276,9 @@ model User {
   policyVersionsPublished PolicyVersion[]
   policyAcceptances PolicyAcceptance[]
   reviewAssignments ReviewAssignment[]
+  emailTemplatesUpdated EmailTemplate[] @relation("EmailTemplateUpdatedBy")
+  notificationPreferences NotificationPreference[]
+  notificationEvents NotificationEvent[]
 }
 
 model JournalRoleAssignment {
@@ -391,6 +405,7 @@ model Submission {
   reviewRounds        ReviewRound[]
   decisions           Decision[]
   messageThreads      MessageThread[]
+  notificationEvents  NotificationEvent[]
   article             Article?
 
   @@unique([journalId, trackingNumber])
@@ -569,6 +584,7 @@ model MessageThread {
   submission Submission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
   createdBy User        @relation("MessageThreadCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
   messages  Message[]
+  notificationEvents NotificationEvent[]
 
   @@index([journalId, createdAt])
   @@index([submissionId])
@@ -581,13 +597,92 @@ model Message {
   threadId    String
   fromUserId  String?
   toEmails    String[]             @default([])
+  subjectOverride String?
   bodyHtml    String
+  templateKey String?
+  providerMessageId String?
+  failedReason String?
+  retryCount Int                   @default(0)
   sentAt      DateTime?
   deliveryStatus MessageDeliveryStatus @default(QUEUED)
 
   thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  notificationEvents NotificationEvent[]
 
   @@index([threadId, createdAt])
+  @@index([templateKey])
+  @@index([deliveryStatus, createdAt])
+}
+
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  journalId String
+  key       String
+  name      String
+  description String?
+  subject   String
+  bodyHtml  String
+  variablesJson Json @default("[]")
+  active    Boolean @default(true)
+  updatedByUserId String?
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  updatedBy User? @relation("EmailTemplateUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([journalId, key])
+  @@index([journalId, active])
+}
+
+model NotificationPreference {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  journalId String
+  userId    String
+  eventKey  String
+  emailEnabled Boolean @default(true)
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([journalId, userId, eventKey])
+  @@index([userId, emailEnabled])
+}
+
+model NotificationEvent {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  journalId String
+  submissionId String?
+  articleId String?
+  threadId String?
+  messageId String?
+  recipientUserId String?
+  recipientEmail String
+  eventKey String
+  templateKey String?
+  subject String
+  status NotificationEventStatus @default(PENDING)
+  payloadJson Json @default("{}")
+  queuedAt DateTime?
+  sentAt DateTime?
+  failedAt DateTime?
+  errorMessage String?
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  submission Submission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  article Article? @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  thread MessageThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  message Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  recipientUser User? @relation(fields: [recipientUserId], references: [id], onDelete: SetNull)
+
+  @@index([journalId, createdAt])
+  @@index([recipientEmail, createdAt])
+  @@index([status, createdAt])
+  @@index([eventKey, createdAt])
 }
 
 model Volume {
@@ -647,6 +742,7 @@ model Article {
   submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   issue      Issue?     @relation(fields: [issueId], references: [id], onDelete: SetNull)
   publishedAssets PublishedAsset[]
+  notificationEvents NotificationEvent[]
 
   @@index([journalId, status])
   @@index([issueId])

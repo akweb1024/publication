@@ -22,6 +22,7 @@ export const prismaEnum = prismaClient as unknown as {
     StorageTarget: typeof import("@prisma/client").StorageTarget;
     DataSyncRunStatus: typeof import("@prisma/client").DataSyncRunStatus;
     MessageDeliveryStatus: typeof import("@prisma/client").MessageDeliveryStatus;
+    NotificationEventStatus: typeof import("@prisma/client").NotificationEventStatus;
     FileSetKind: typeof import("@prisma/client").FileSetKind;
     StoredFileRole: typeof import("@prisma/client").StoredFileRole;
     JournalStatus: typeof import("@prisma/client").JournalStatus;

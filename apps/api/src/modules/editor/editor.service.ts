@@ -5,9 +5,9 @@ import type {
   SubmissionStatus as SubmissionStatusType,
 } from "@prisma/client";
 import { EDITOR_ROLES, prismaEnum } from "@pub/shared";
+import { CommunicationsService } from "../communications/communications.service.js";
 import { JournalResolverService } from "../journal-resolver/journal-resolver.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
-import { EmailQueueService } from "../queues/queues.service.js";
 
 const { DecisionType, EditorAssignmentRole, SubmissionStatus } = prismaEnum;
 
@@ -15,7 +15,7 @@ const { DecisionType, EditorAssignmentRole, SubmissionStatus } = prismaEnum;
 export class EditorService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(EmailQueueService) private readonly emailQueue: EmailQueueService,
+    @Inject(CommunicationsService) private readonly communications: CommunicationsService,
     @Inject(JournalResolverService) private readonly journalResolver: JournalResolverService
   ) { }
 
@@ -259,7 +259,13 @@ export class EditorService {
   ) {
     const submission = await this.prisma.submission.findUnique({
       where: { id: submissionId },
-      select: { id: true, journalId: true, submitter: { select: { email: true } }, trackingNumber: true },
+      select: {
+        id: true,
+        journalId: true,
+        manuscriptTitle: true,
+        submitter: { select: { id: true, email: true, name: true } },
+        trackingNumber: true,
+      },
     });
     if (!submission) throw new NotFoundException("Submission not found");
     await this.ensureEditor(actorUserId, submission.journalId);
@@ -299,26 +305,21 @@ export class EditorService {
       });
     }
 
-    await this.prisma.messageThread.create({
-      data: {
-        journalId: submission.journalId,
-        submissionId,
-        subject: `Decision for ${submission.trackingNumber ?? submissionId}`,
-        createdByUserId: actorUserId,
-        messages: {
-          create: {
-            toEmails: [submission.submitter.email],
-            bodyHtml: input.letterToAuthor,
-            deliveryStatus: "QUEUED",
-          },
-        },
+    await this.communications.sendTemplateEmail({
+      journalId: submission.journalId,
+      actorUserId,
+      eventKey: "submission.decision",
+      templateKey: "decision-letter",
+      to: { email: submission.submitter.email, userId: submission.submitter.id },
+      submissionId,
+      threadSubject: `Decision for ${submission.trackingNumber ?? submissionId}`,
+      variables: {
+        trackingNumber: submission.trackingNumber ?? "your submission",
+        manuscriptTitle: submission.manuscriptTitle ?? "",
+        decisionType: input.type,
+        letterToAuthor: input.letterToAuthor,
+        authorName: submission.submitter.name,
       },
-    });
-
-    await this.emailQueue.enqueueEmail({
-      to: [submission.submitter.email],
-      subject: `Decision for ${submission.trackingNumber ?? "your submission"}`,
-      html: input.letterToAuthor,
     });
 
     await this.prisma.auditLog.create({

@@ -15,6 +15,7 @@ import { FilesModule } from "./storage/files.module.js";
 import { UsersModule } from "./users/users.module.js";
 import { AgentModule } from "./agent/agent.module.js";
 import { PublicModule } from "./public/public.module.js";
+import { CommunicationsModule } from "./communications/communications.module.js";
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { PublicModule } from "./public/public.module.js";
     FilesModule,
     UsersModule,
     AgentModule,
+    CommunicationsModule,
     PublicModule
   ],
 })

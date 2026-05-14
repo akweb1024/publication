@@ -172,6 +172,17 @@ const SIDEBAR_NAV: NavGroup[] = [
     defaultOpen: false,
   },
   {
+    key: "communications",
+    label: "Communications",
+    icon: "bell",
+    items: [
+      { label: "Message Center", href: "/dashboard/communications", icon: "bell", capability: "canManageJournal" },
+      { label: "Email Templates", href: "/dashboard/communications?tab=templates", icon: "bell", capability: "canManageJournal" },
+      { label: "Notification Events", href: "/dashboard/communications?tab=events", icon: "audit", capability: "canManageJournal" },
+    ],
+    defaultOpen: false,
+  },
+  {
     key: "storage",
     label: "Storage & Sync",
     icon: "storage",

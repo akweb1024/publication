@@ -3153,6 +3153,61 @@ textarea:focus-visible {
   border-top: 1px solid var(--line);
 }
 
+.shell-tab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: #fff;
+}
+
+.shell-tab {
+  border: 0;
+  background: transparent;
+  color: var(--ink-700);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.shell-tab:hover {
+  background: #f1f5f9;
+}
+
+.shell-tab.active {
+  color: #fff;
+  background: var(--primary);
+}
+
+.shell-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink-700);
+  font-size: 0.9rem;
+}
+
+.shell-toggle-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
+
+.shell-preference-list {
+  display: grid;
+  gap: 10px;
+}
+
 .shell-progress-bar {
   height: 6px;
   background: #e2e8f0;
