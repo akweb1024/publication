@@ -16,6 +16,10 @@ export const prismaEnum = prismaClient as unknown as {
     DecisionType: typeof import("@prisma/client").DecisionType;
     EditorAssignmentRole: typeof import("@prisma/client").EditorAssignmentRole;
     ArticleStatus: typeof import("@prisma/client").ArticleStatus;
+    ArticleProductionStatus: typeof import("@prisma/client").ArticleProductionStatus;
+    ProductionTaskType: typeof import("@prisma/client").ProductionTaskType;
+    ProductionTaskStatus: typeof import("@prisma/client").ProductionTaskStatus;
+    ProofRoundStatus: typeof import("@prisma/client").ProofRoundStatus;
     IssueStatus: typeof import("@prisma/client").IssueStatus;
     ArticleAccess: typeof import("@prisma/client").ArticleAccess;
     StorageProvider: typeof import("@prisma/client").StorageProvider;

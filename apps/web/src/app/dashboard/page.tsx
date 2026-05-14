@@ -78,6 +78,7 @@ const WORKSPACE_ITEMS: Array<{
     { tier: "admin", href: "/dashboard/audit", title: "Audit Logs", description: "Trace sensitive workflow actions, policy changes, and access decisions.", capability: "canAudit" },
     { tier: "admin", href: "/dashboard/security", title: "Security Center", description: "Manage MFA setup, session hardening, and staff security controls.", capability: "canSecurity" },
     { tier: "editorial", href: "/dashboard/editor", title: "Editorial Workspace", description: "Triage submissions, assign editors, invite reviewers, and record decisions.", capability: "canEditorial" },
+    { tier: "production", href: "/dashboard/production", title: "Production Pipeline", description: "Run copyediting, proofing, layout, metadata QA, and final publication checks.", capability: "canPublishing" },
     { tier: "production", href: "/dashboard/publishing", title: "Publishing Workspace", description: "Manage volumes/issues, assign accepted articles, and publish assets.", capability: "canPublishing" },
     { tier: "review", href: "/dashboard/reviewer", title: "Reviewer Workspace", description: "Accept invitations and submit blinded reviews with recommendations.", capability: "canReview" },
     { tier: "support", href: "/dashboard/submissions", title: "Author Workspace", description: "Create, edit, and submit manuscript drafts with autosave and guardrails.", capability: "canSubmit" },

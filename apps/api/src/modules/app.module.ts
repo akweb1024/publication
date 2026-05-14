@@ -11,6 +11,7 @@ import { SubmissionsModule } from "./submissions/submissions.module.js";
 import { EditorModule } from "./editor/editor.module.js";
 import { ReviewerModule } from "./reviewer/reviewer.module.js";
 import { PublishingModule } from "./publishing/publishing.module.js";
+import { ProductionModule } from "./production/production.module.js";
 import { FilesModule } from "./storage/files.module.js";
 import { UsersModule } from "./users/users.module.js";
 import { AgentModule } from "./agent/agent.module.js";
@@ -33,6 +34,7 @@ import { CommunicationsModule } from "./communications/communications.module.js"
     SubmissionsModule,
     EditorModule,
     ReviewerModule,
+    ProductionModule,
     PublishingModule,
     FilesModule,
     UsersModule,

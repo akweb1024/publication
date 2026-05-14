@@ -78,6 +78,8 @@ Production is designed around Docker/Coolify:
 
 ## 1. Production Pipeline Module
 
+Status: v1 implemented with production tasks, proof rounds, annotations, article readiness tracking, API endpoints, and `/dashboard/production`.
+
 ### Goal
 
 Add a real post-acceptance production workflow for copyediting, proofing, layout, asset preparation, and final publication approval.

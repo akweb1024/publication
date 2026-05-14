@@ -128,6 +128,39 @@ enum ArticleStatus {
   EOC
 }
 
+enum ArticleProductionStatus {
+  NOT_STARTED
+  IN_PRODUCTION
+  AUTHOR_PROOF
+  FINAL_QA
+  READY_FOR_PUBLICATION
+}
+
+enum ProductionTaskType {
+  COPYEDIT
+  TYPESET
+  AUTHOR_PROOF
+  EDITOR_PROOF
+  DOI_METADATA
+  FINAL_QA
+}
+
+enum ProductionTaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum ProofRoundStatus {
+  DRAFT
+  SENT_TO_AUTHOR
+  AUTHOR_APPROVED
+  EDITOR_APPROVED
+  CHANGES_REQUESTED
+}
+
 enum MessageDeliveryStatus {
   QUEUED
   SENT
@@ -182,6 +215,8 @@ model Journal {
   volumes            Volume[]
   issues             Issue[]
   articles           Article[]
+  productionTasks    ProductionTask[]
+  proofRounds        ProofRound[]
   messageThreads     MessageThread[]
   emailTemplates     EmailTemplate[]
   notificationPreferences NotificationPreference[]
@@ -279,6 +314,11 @@ model User {
   emailTemplatesUpdated EmailTemplate[] @relation("EmailTemplateUpdatedBy")
   notificationPreferences NotificationPreference[]
   notificationEvents NotificationEvent[]
+  productionTasksAssigned ProductionTask[] @relation("ProductionTaskAssignee")
+  productionTasksCompleted ProductionTask[] @relation("ProductionTaskCompleter")
+  proofRoundsAuthorApproved ProofRound[] @relation("ProofRoundAuthorApprover")
+  proofRoundsEditorApproved ProofRound[] @relation("ProofRoundEditorApprover")
+  proofAnnotationsCreated ProofAnnotation[]
 }
 
 model JournalRoleAssignment {
@@ -462,6 +502,7 @@ model StoredFile {
   fileSet    FileSet @relation(fields: [fileSetId], references: [id], onDelete: Cascade)
   uploadedBy User    @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
   publishedAssets PublishedAsset[]
+  proofRounds ProofRound[]
 
   @@index([fileSetId])
   @@index([storageKey])
@@ -737,15 +778,89 @@ model Article {
   licenseKey  String?
   publishedAt DateTime?
   status      ArticleStatus @default(IN_PRESS)
+  productionStatus ArticleProductionStatus @default(NOT_STARTED)
 
   journal    Journal    @relation(fields: [journalId], references: [id], onDelete: Cascade)
   submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   issue      Issue?     @relation(fields: [issueId], references: [id], onDelete: SetNull)
   publishedAssets PublishedAsset[]
   notificationEvents NotificationEvent[]
+  productionTasks ProductionTask[]
+  proofRounds ProofRound[]
 
   @@index([journalId, status])
+  @@index([journalId, productionStatus])
   @@index([issueId])
+}
+
+model ProductionTask {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  journalId String
+  articleId String
+  type      ProductionTaskType
+  status    ProductionTaskStatus @default(TODO)
+  title     String
+  notes     String?
+  assignedToUserId String?
+  dueAt     DateTime?
+  startedAt DateTime?
+  completedAt DateTime?
+  completedByUserId String?
+  metadataJson Json @default("{}")
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  assignedTo User? @relation("ProductionTaskAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  completedBy User? @relation("ProductionTaskCompleter", fields: [completedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([journalId, status])
+  @@index([articleId, type])
+  @@index([assignedToUserId, status])
+}
+
+model ProofRound {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  journalId String
+  articleId String
+  roundNumber Int
+  status    ProofRoundStatus @default(DRAFT)
+  proofFileId String?
+  authorApprovedAt DateTime?
+  authorApprovedByUserId String?
+  editorApprovedAt DateTime?
+  editorApprovedByUserId String?
+  notes String?
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  proofFile StoredFile? @relation(fields: [proofFileId], references: [id], onDelete: SetNull)
+  authorApprovedBy User? @relation("ProofRoundAuthorApprover", fields: [authorApprovedByUserId], references: [id], onDelete: SetNull)
+  editorApprovedBy User? @relation("ProofRoundEditorApprover", fields: [editorApprovedByUserId], references: [id], onDelete: SetNull)
+  annotations ProofAnnotation[]
+
+  @@unique([articleId, roundNumber])
+  @@index([journalId, status])
+}
+
+model ProofAnnotation {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  proofRoundId String
+  createdByUserId String
+  pageNumber Int?
+  anchorText String?
+  commentText String
+  resolvedAt DateTime?
+
+  proofRound ProofRound @relation(fields: [proofRoundId], references: [id], onDelete: Cascade)
+  createdBy User @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([proofRoundId, createdAt])
 }
 
 model PublishedAsset {

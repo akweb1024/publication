@@ -5,7 +5,7 @@ import { JournalResolverService } from "../journal-resolver/journal-resolver.ser
 import { PrismaService } from "../prisma/prisma.service.js";
 import { EmailQueueService } from "../queues/queues.service.js";
 
-const { ArticleStatus } = prismaEnum;
+const { ArticleProductionStatus, ArticleStatus } = prismaEnum;
 
 @Injectable()
 export class PublishingService {
@@ -137,10 +137,16 @@ export class PublishingService {
   }
 
   async publishArticle(articleId: string, actorUserId: string, pdfFileId: string) {
-    const article = await this.prisma.article.findUnique({ where: { id: articleId }, select: { id: true, journalId: true, status: true } });
+    const article = await this.prisma.article.findUnique({ where: { id: articleId }, select: { id: true, journalId: true, status: true, productionStatus: true } });
     if (!article) throw new NotFoundException("Article not found");
     await this.ensureEditor(actorUserId, article.journalId);
     if (article.status !== ArticleStatus.IN_PRESS) throw new BadRequestException("Only IN_PRESS can be published");
+    if (
+      article.productionStatus !== ArticleProductionStatus.NOT_STARTED &&
+      article.productionStatus !== ArticleProductionStatus.READY_FOR_PUBLICATION
+    ) {
+      throw new BadRequestException("Article must complete production before publishing");
+    }
 
     const now = new Date();
     await this.prisma.publishedAsset.create({

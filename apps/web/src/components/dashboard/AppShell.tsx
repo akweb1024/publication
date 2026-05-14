@@ -149,6 +149,7 @@ const SIDEBAR_NAV: NavGroup[] = [
     icon: "publishing",
     items: [
       { label: "Accepted Papers", href: "/dashboard/publishing?status=IN_PRESS", icon: "publishing", capability: "canPublishing" },
+      { label: "Production Pipeline", href: "/dashboard/production", icon: "editorial", capability: "canPublishing" },
       { label: "Volumes", href: "/dashboard/publishing?tab=volumes", icon: "publishing", capability: "canPublishing" },
       { label: "Issues", href: "/dashboard/publishing?tab=issues", icon: "publishing", capability: "canPublishing" },
       { label: "Article Metadata", href: "/dashboard/publishing?tab=metadata", icon: "publishing", capability: "canPublishing" },
